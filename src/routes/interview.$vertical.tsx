@@ -160,7 +160,7 @@ function InterviewPage() {
     for (const [k, v] of Object.entries(finalAnswers)) {
       const f = cfg.spec_schema.find((s) => s.id === k);
       if (!f) { fields[k] = v; continue; }
-      if (f.type === "number") fields[k] = Number(v) || fields[k];
+      if (f.type === "number") { const n = Number(String(v).replace(/[^\d.]/g, "")); fields[k] = Number.isFinite(n) && n > 0 ? n : fields[k]; }
       else if (f.type === "string_list") fields[k] = v.split(",").map((s) => s.trim());
       else if (f.type === "boolean") fields[k] = /^(y|yes|true)/i.test(v);
       else fields[k] = v;
