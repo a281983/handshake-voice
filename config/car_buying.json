@@ -61,7 +61,7 @@
 
   "discovery": {
     "provider": "tavily",
-    "query_template": "used car dealerships near {zip} selling {year} {make} {model}",
+    "query_template": "used car dealerships in {city} selling {make} {model}",
     "select_count": 3
   },
 
