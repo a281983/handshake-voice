@@ -478,9 +478,42 @@ export const simulateCall = createServerFn({ method: "POST" })
       : (simCfg.round1_max_turns ?? simCfg.max_turns);
     if (turns.length > capMax) turns = turns.slice(0, capMax);
 
+    // Reconcile the extracted bottom_line to what was ACTUALLY said in the call.
+    // If the extractor picked a number the counterparty never uttered, we fall
+    // back to the LAST plausible dollar figure the counterparty committed to
+    // (most negotiation calls end at the final agreed number). This kills the
+    // report/dialogue mismatch bug.
+    const counterpartyMoney: number[] = [];
+    for (const t of turns) {
+      if (t.speaker !== "counterparty") continue;
+      const matches = t.text.match(/\$?\s?(\d{1,3}(?:,\d{3})+|\d{4,6})/g) ?? [];
+      for (const m of matches) {
+        const n = Number(m.replace(/[^\d]/g, ""));
+        if (n >= 5000 && n <= 500000) counterpartyMoney.push(n);
+      }
+    }
+    const bl = quote.bottom_line;
+    const blInTranscript =
+      bl != null && counterpartyMoney.some((n) => Math.abs(n - bl) <= Math.max(50, bl * 0.02));
+    if (!blInTranscript && counterpartyMoney.length) {
+      // Prefer the LOWEST total-shaped number the counterparty said in the
+      // second half of the call — that's typically the final concession.
+      const secondHalf = counterpartyMoney.slice(Math.floor(counterpartyMoney.length / 2));
+      const chosen = Math.min(...(secondHalf.length ? secondHalf : counterpartyMoney));
+      quote.bottom_line = chosen;
+      // Rebuild line_items so they sum to the reconciled total. Keep the base
+      // price if we have one; put the remainder into a single "Fees & taxes"
+      // line so nothing is inflated beyond what the transcript supports.
+      const base = quote.line_items?.[0]?.amount ?? Math.round(chosen * 0.9);
+      const remainder = Math.max(0, chosen - base);
+      quote.line_items = remainder > 0
+        ? [{ label: quote.line_items?.[0]?.label ?? "Vehicle price", amount: base }, { label: "Fees & taxes", amount: remainder }]
+        : [{ label: quote.line_items?.[0]?.label ?? "Vehicle price", amount: chosen }];
+    }
+
     // Anti-hallucination anchor: which turn indices mention the bottom line.
     const quote_source_turns = turns
-      .map((t, i) => (quote.bottom_line != null && t.text.includes(String(quote.bottom_line)) ? i : -1))
+      .map((t, i) => (quote.bottom_line != null && t.text.replace(/,/g, "").includes(String(quote.bottom_line)) ? i : -1))
       .filter((i) => i >= 0);
 
     // Persist (only when freshly generated — don't duplicate a cached replay).
