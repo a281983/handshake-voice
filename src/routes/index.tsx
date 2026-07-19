@@ -1,8 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import * as Icons from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { listVerticals, getVertical } from "@/lib/registry";
+import { listVerticals } from "@/lib/registry";
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
@@ -11,7 +10,6 @@ export const Route = createFileRoute("/")({
 function LandingPage() {
   const navigate = useNavigate();
   const [ask, setAsk] = useState("");
-  const [busy, setBusy] = useState(false);
   const verticals = listVerticals();
 
   // Route a free-form "ask anything" request to the best-matching vertical.
