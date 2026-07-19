@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { Mic, Upload, ArrowRight, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Mic, MicOff, Upload, ArrowRight, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getVertical } from "@/lib/registry";
 
