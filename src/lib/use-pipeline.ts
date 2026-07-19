@@ -33,7 +33,7 @@ export type Phase =
   | "idle" | "discovering" | "quoting" | "leverage"
   | "negotiating" | "finalizing" | "done" | "error";
 
-export type CounterpartyMeta = { id: string; name: string; style: string; voice_id: string };
+export type CounterpartyMeta = { id: string; name: string; style: string; voice_id: string; phone?: string };
 
 /** Per-call live state the UI renders. */
 export type CallView = {
