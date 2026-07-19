@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Mic, MicOff, Upload, ArrowRight, Loader2 } from "lucide-react";
+import { Mic, MicOff, Upload, ArrowRight, Loader2, Keyboard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getVertical } from "@/lib/registry";
 
@@ -8,9 +8,6 @@ export const Route = createFileRoute("/interview/$vertical")({
   component: InterviewPage,
 });
 
-// The interview is intentionally short (≤4 questions) to fit the ~15s demo.
-// Live ElevenLabs voice wires here via the React SDK; this component also works
-// as a rapid tap/type flow so the flow is never blocked by voice setup.
 function InterviewPage() {
   const { vertical } = Route.useParams();
   const navigate = useNavigate();
@@ -23,11 +20,23 @@ function InterviewPage() {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [showType, setShowType] = useState(false);
   const [micError, setMicError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
+  const finalRef = useRef<string>("");
+  const stepRef = useRef(step);
+  const answersRef = useRef(answers);
+  const voiceModeRef = useRef(voiceMode);
+  useEffect(() => { stepRef.current = step; }, [step]);
+  useEffect(() => { answersRef.current = answers; }, [answers]);
+  useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
+
   const supportsSpeech =
     typeof window !== "undefined" &&
     (("SpeechRecognition" in window) || ("webkitSpeechRecognition" in window));
+  const supportsTTS = typeof window !== "undefined" && "speechSynthesis" in window;
 
   const current = questions[step];
 
@@ -36,8 +45,22 @@ function InterviewPage() {
     setListening(false);
   };
 
-  const startListening = () => {
-    setMicError(null);
+  const speak = (text: string): Promise<void> =>
+    new Promise((resolve) => {
+      if (!supportsTTS) return resolve();
+      try {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1.0;
+        u.pitch = 1.0;
+        u.onstart = () => setSpeaking(true);
+        u.onend = () => { setSpeaking(false); resolve(); };
+        u.onerror = () => { setSpeaking(false); resolve(); };
+        window.speechSynthesis.speak(u);
+      } catch { resolve(); }
+    });
+
+  const startRecognition = () => {
     if (!supportsSpeech) {
       setMicError("Voice input isn't supported in this browser — please type instead.");
       return;
@@ -49,23 +72,35 @@ function InterviewPage() {
       rec.lang = "en-US";
       rec.interimResults = true;
       rec.continuous = false;
+      finalRef.current = "";
       rec.onresult = (e: any) => {
-        let text = "";
-        for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
-        setDraft(text.trim());
+        let interim = "";
+        let final = "";
+        for (let i = 0; i < e.results.length; i++) {
+          const r = e.results[i];
+          if (r.isFinal) final += r[0].transcript;
+          else interim += r[0].transcript;
+        }
+        if (final) finalRef.current = (finalRef.current + " " + final).trim();
+        setDraft((finalRef.current + " " + interim).trim());
       };
       rec.onerror = (e: any) => {
         setListening(false);
         const err = e?.error ?? "unknown";
+        if (err === "no-speech") return;
         setMicError(
           err === "not-allowed" || err === "service-not-allowed"
             ? "Microphone permission was blocked. Enable it in your browser."
-            : err === "no-speech"
-            ? "Didn't catch that — try again."
             : `Mic error: ${err}`,
         );
       };
-      rec.onend = () => setListening(false);
+      rec.onend = () => {
+        setListening(false);
+        const finalText = finalRef.current.trim();
+        if (voiceModeRef.current && finalText) {
+          setTimeout(() => advanceWith(finalText), 250);
+        }
+      };
       recognitionRef.current = rec;
       rec.start();
       setListening(true);
@@ -75,12 +110,49 @@ function InterviewPage() {
     }
   };
 
-  useEffect(() => () => stopListening(), []);
+  const askAndListen = async (idx: number) => {
+    const q = questions[idx];
+    if (!q) return;
+    setDraft("");
+    finalRef.current = "";
+    await speak(q.ask);
+    setTimeout(() => startRecognition(), 150);
+  };
 
+  const beginVoiceInterview = async () => {
+    setMicError(null);
+    setVoiceMode(true);
+    voiceModeRef.current = true;
+    await askAndListen(stepRef.current);
+  };
+
+  const advanceWith = (text: string) => {
+    const q = questions[stepRef.current];
+    if (!q) return;
+    const next = { ...answersRef.current, [q.field]: text };
+    setAnswers(next);
+    answersRef.current = next;
+    setDraft("");
+    finalRef.current = "";
+    if (stepRef.current + 1 < questions.length) {
+      const nextIdx = stepRef.current + 1;
+      setStep(nextIdx);
+      stepRef.current = nextIdx;
+      if (voiceModeRef.current) setTimeout(() => askAndListen(nextIdx), 350);
+    } else {
+      void submitSpec(next);
+    }
+  };
+
+  useEffect(() => () => {
+    try { recognitionRef.current?.stop(); } catch {}
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+  }, []);
 
   const submitSpec = async (finalAnswers: Record<string, string>) => {
     setBusy(true);
-    // Start from config defaults, overlay the interview answers.
     const fields: Record<string, unknown> = {};
     for (const f of cfg.spec_schema) {
       if (f.default !== undefined) fields[f.id] = f.default;
@@ -93,7 +165,6 @@ function InterviewPage() {
       else if (f.type === "boolean") fields[k] = /^(y|yes|true)/i.test(v);
       else fields[k] = v;
     }
-    // Special-case: "make and model" answered together.
     if (fields.make && typeof fields.make === "string" && (fields.make as string).includes(" ") && !finalAnswers.model) {
       const [mk, ...rest] = (fields.make as string).split(" ");
       fields.make = mk;
@@ -112,11 +183,18 @@ function InterviewPage() {
 
   const answerCurrent = () => {
     if (!draft.trim()) return;
-    const next = { ...answers, [current.field]: draft.trim() };
-    setAnswers(next);
-    setDraft("");
-    if (step + 1 < questions.length) setStep(step + 1);
-    else void submitSpec(next);
+    advanceWith(draft.trim());
+  };
+
+  const onOrbClick = () => {
+    if (listening) { stopListening(); return; }
+    if (speaking) {
+      if (typeof window !== "undefined") window.speechSynthesis.cancel();
+      setSpeaking(false);
+      return;
+    }
+    if (!voiceMode) void beginVoiceInterview();
+    else void askAndListen(stepRef.current);
   };
 
   return (
@@ -126,7 +204,6 @@ function InterviewPage() {
           Step 1 · Quick interview
         </p>
 
-        {/* Progress */}
         <div className="mt-3 flex items-center justify-center gap-1.5">
           {questions.map((_, i) => (
             <div
@@ -136,40 +213,40 @@ function InterviewPage() {
           ))}
         </div>
 
-        {/* Voice orb — tap to dictate */}
         <div className="mt-8 flex justify-center">
           <button
             type="button"
-            onClick={listening ? stopListening : startListening}
-            aria-label={listening ? "Stop listening" : "Start voice input"}
+            onClick={onOrbClick}
+            aria-label={listening ? "Stop listening" : speaking ? "Stop speaking" : "Start voice interview"}
             className={`relative h-24 w-24 rounded-full grid place-items-center glow-ring transition ${
-              listening
+              listening || speaking
                 ? "bg-primary text-primary-foreground border border-primary"
                 : "bg-primary/10 border border-primary/30 hover:bg-primary/20"
             }`}
           >
-            {listening ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8 text-primary" />}
-            {listening && (
+            {listening ? <MicOff className="h-8 w-8" /> : <Mic className={`h-8 w-8 ${speaking || listening ? "" : "text-primary"}`} />}
+            {(listening || speaking) && (
               <span className="absolute inset-0 rounded-full border border-primary/40 animate-ping" />
             )}
           </button>
         </div>
+        <p className="mt-3 text-xs text-center text-muted-foreground">
+          {listening ? "Listening…" : speaking ? "Speaking…" : voiceMode ? "Tap to repeat the question" : "Tap the mic to start the interview"}
+        </p>
         {micError && (
-          <p className="mt-3 text-xs text-destructive text-center">{micError}</p>
+          <p className="mt-2 text-xs text-destructive text-center">{micError}</p>
         )}
 
-        {/* Current question */}
         <h1 className="mt-8 text-2xl font-semibold text-center leading-tight">
           {busy ? "Building your spec…" : current.ask}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground text-center">
-          {busy ? "One second." : `Say it or type it — quick answers work best.`}
+          {busy ? "One second." : voiceMode ? "Just answer out loud." : "Say it or type it."}
         </p>
 
-        {!busy && (
+        {!busy && (showType || !voiceMode) && (
           <div className="mt-6 flex items-center gap-2 rounded-2xl border border-border bg-surface p-2 focus-within:border-primary/50">
             <input
-              autoFocus
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && answerCurrent()}
@@ -185,14 +262,22 @@ function InterviewPage() {
           </div>
         )}
 
+        {!busy && voiceMode && !showType && (
+          <button
+            onClick={() => setShowType(true)}
+            className="mt-4 mx-auto flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition"
+          >
+            <Keyboard className="h-3.5 w-3.5" /> Prefer to type?
+          </button>
+        )}
+
         {busy && (
           <div className="mt-6 flex justify-center">
             <Loader2 className="h-5 w-5 text-primary animate-spin" />
           </div>
         )}
 
-        {/* Upload alternative */}
-        {!busy && step === 0 && (
+        {!busy && step === 0 && !voiceMode && (
           <label className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-surface/50 p-3 text-xs text-muted-foreground hover:border-primary/40 cursor-pointer transition">
             <Upload className="h-4 w-4" />
             Or upload a listing / photo — same {L.quote_noun}
