@@ -23,21 +23,6 @@ function LandingPage() {
     navigate({ to: "/interview/$vertical", params: { vertical: match.id } });
   };
 
-  const startDemo = async () => {
-    setBusy(true);
-    const cfg = getVertical("car_buying");
-    const spec = { vertical: cfg.id, fields: cfg.interview.demo_spec };
-    const { data, error } = await supabase
-      .from("jobs")
-      .insert({ vertical: cfg.id, job_spec: spec as unknown as never, stage: "intake" })
-      .select("id")
-      .single();
-    if (error || !data) {
-      setBusy(false);
-      return;
-    }
-    navigate({ to: "/confirm/$jobId", params: { jobId: data.id } });
-  };
 
   return (
     <main className="min-h-dvh grid-bg">
