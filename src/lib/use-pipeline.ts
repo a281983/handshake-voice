@@ -52,6 +52,7 @@ export function usePipeline(jobId: string) {
   const doEval = useServerFn(runEval);
   const doReport = useServerFn(buildReport);
   const setStage = useServerFn(setJobStage);
+  const provision = useServerFn(provisionAgents);
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [round, setRound] = useState<1 | 2>(1);
