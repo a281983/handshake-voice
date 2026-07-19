@@ -52,11 +52,19 @@ function dealerAgentBody(
  * Idempotent: existing agent ids are read from system_config first.
  */
 export const provisionAgents = createServerFn({ method: "POST" })
-  .inputValidator((i: { vertical: string }) => i)
+  .inputValidator((i: { jobId: string }) => i)
   .handler(async ({ data }) => {
     const key = requireKey();
-    const cfg = getVertical(data.vertical);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: job, error: jobErr } = await supabaseAdmin
+      .from("jobs")
+      .select("vertical")
+      .eq("id", data.jobId)
+      .single();
+    if (jobErr || !job) throw new Error(`Job ${data.jobId} not found`);
+    const vertical = job.vertical;
+    const cfg = getVertical(vertical);
+
 
     const results: Record<string, { agent_id: string; created: boolean }> = {};
 
