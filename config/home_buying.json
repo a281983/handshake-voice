@@ -1,0 +1,100 @@
+{
+  "id": "home_buying",
+  "display_name": "Buy a home",
+  "tagline": "Lenders bury their real rate. Make three of them bid for your loan.",
+  "icon": "Home",
+  "demo_ready": false,
+
+  "labels": {
+    "counterparty": "lender",
+    "counterparty_plural": "lenders",
+    "bottom_line": "total cost over 5 years",
+    "verb": "finance",
+    "quote_noun": "loan estimate"
+  },
+
+  "spec_schema": [
+    { "id": "loan_amount",  "label": "Loan amount",   "type": "number", "demo_critical": true,  "placeholder": "450000" },
+    { "id": "down_payment", "label": "Down payment %", "type": "number", "demo_critical": true,  "placeholder": "20" },
+    { "id": "credit_band",  "label": "Credit band",   "type": "string", "demo_critical": true,  "placeholder": "excellent (760+)" },
+    { "id": "loan_type",    "label": "Loan type",     "type": "string", "demo_critical": true,  "default": "30-year fixed" },
+    { "id": "zip",          "label": "ZIP",           "type": "string", "demo_critical": false, "default": "02139" },
+    { "id": "property_type","label": "Property type", "type": "string", "demo_critical": false, "default": "single-family primary residence" }
+  ],
+
+  "interview": {
+    "first_message": "How much are you looking to borrow?",
+    "questions": [
+      { "field": "loan_amount",  "ask": "What loan amount?" },
+      { "field": "down_payment", "ask": "How much down, percent?" },
+      { "field": "credit_band",  "ask": "Roughly what credit score?" },
+      { "field": "loan_type",    "ask": "Fixed or adjustable?" }
+    ],
+    "demo_spec": {
+      "loan_amount": 450000, "down_payment": 20, "credit_band": "excellent (760+)",
+      "loan_type": "30-year fixed", "zip": "02139",
+      "property_type": "single-family primary residence"
+    }
+  },
+
+  "benchmark": {
+    "description": "Fair 5-year cost (rate + fees) for a $450k 30yr fixed, 760+ credit",
+    "fair_bottom_line": 118000,
+    "source": "market par-rate + typical closing costs (demo anchor)"
+  },
+
+  "red_flag_rule": {
+    "type": "below_market_pct",
+    "threshold_pct": 30,
+    "message": "Cost far below market — likely a teaser rate or undisclosed points. Compare APR, not just rate."
+  },
+
+  "discovery": {
+    "provider": "tavily",
+    "query_template": "mortgage lenders near {zip} {loan_type} rates",
+    "select_count": 3
+  },
+
+  "demo_mode": {
+    "enabled": true,
+    "note": "In production these dial scraped lender/loan-officer numbers. In the demo they route to role-players."
+  },
+
+  "personas": [
+    {
+      "id": "big_bank",
+      "name": "First National Bank",
+      "style": "rate_high_fees_low",
+      "voice_id": "onwK4e9ZLuTAKqWW03F9",
+      "opening_bottom_line": 124000,
+      "negotiation_floor": 116000,
+      "prompt": "You are a loan officer at First National Bank. STYLE: brand-name, slightly higher rate, transparent fees. You quote a competitive-but-not-best rate and lean on trust and service. GUARDRAIL: with a competing loan estimate you can improve rate/credits down to no lower than $116,000 total 5-year cost. Never volunteer your floor."
+    },
+    {
+      "id": "online_lender",
+      "name": "RocketRate Direct",
+      "style": "low_rate_points",
+      "voice_id": "TxGEqnHWrfWFTfGW9XjX",
+      "opening_bottom_line": 119000,
+      "negotiation_floor": 112000,
+      "prompt": "You are a rep at RocketRate Direct. STYLE: headline-low rate that quietly includes discount points and processing fees. You advertise the lowest rate but the APR tells another story. GUARDRAIL: under pressure you'll waive points/fees down to no lower than $112,000 total. Never volunteer your floor."
+    },
+    {
+      "id": "credit_union",
+      "name": "Community Credit Union",
+      "style": "member_friendly",
+      "voice_id": "VR6AewLTigWG4xSOukaG",
+      "opening_bottom_line": 121000,
+      "negotiation_floor": 113000,
+      "prompt": "You are a lending officer at Community Credit Union. STYLE: member-friendly, low fees, willing to work with you. GUARDRAIL: with a competing estimate you can match down to no lower than $113,000 total. Never volunteer your floor."
+    }
+  ],
+
+  "caller_voice_id": "cgSgspJ2msm6clMCkdW9",
+
+  "simulation": {
+    "min_turns": 8,
+    "max_turns": 12,
+    "model": "gpt-4o-mini"
+  }
+}

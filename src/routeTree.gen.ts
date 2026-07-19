@@ -10,33 +10,116 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TrackerJobIdRouteImport } from './routes/tracker.$jobId'
+import { Route as SimulateJobIdRouteImport } from './routes/simulate.$jobId'
+import { Route as ReportJobIdRouteImport } from './routes/report.$jobId'
+import { Route as InterviewVerticalRouteImport } from './routes/interview.$vertical'
+import { Route as ConfirmJobIdRouteImport } from './routes/confirm.$jobId'
+import { Route as ApiPublicElevenlabsPostcallRouteImport } from './routes/api/public/elevenlabs.postcall'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TrackerJobIdRoute = TrackerJobIdRouteImport.update({
+  id: '/tracker/$jobId',
+  path: '/tracker/$jobId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SimulateJobIdRoute = SimulateJobIdRouteImport.update({
+  id: '/simulate/$jobId',
+  path: '/simulate/$jobId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportJobIdRoute = ReportJobIdRouteImport.update({
+  id: '/report/$jobId',
+  path: '/report/$jobId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InterviewVerticalRoute = InterviewVerticalRouteImport.update({
+  id: '/interview/$vertical',
+  path: '/interview/$vertical',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfirmJobIdRoute = ConfirmJobIdRouteImport.update({
+  id: '/confirm/$jobId',
+  path: '/confirm/$jobId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicElevenlabsPostcallRoute =
+  ApiPublicElevenlabsPostcallRouteImport.update({
+    id: '/api/public/elevenlabs/postcall',
+    path: '/api/public/elevenlabs/postcall',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/confirm/$jobId': typeof ConfirmJobIdRoute
+  '/interview/$vertical': typeof InterviewVerticalRoute
+  '/report/$jobId': typeof ReportJobIdRoute
+  '/simulate/$jobId': typeof SimulateJobIdRoute
+  '/tracker/$jobId': typeof TrackerJobIdRoute
+  '/api/public/elevenlabs/postcall': typeof ApiPublicElevenlabsPostcallRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/confirm/$jobId': typeof ConfirmJobIdRoute
+  '/interview/$vertical': typeof InterviewVerticalRoute
+  '/report/$jobId': typeof ReportJobIdRoute
+  '/simulate/$jobId': typeof SimulateJobIdRoute
+  '/tracker/$jobId': typeof TrackerJobIdRoute
+  '/api/public/elevenlabs/postcall': typeof ApiPublicElevenlabsPostcallRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/confirm/$jobId': typeof ConfirmJobIdRoute
+  '/interview/$vertical': typeof InterviewVerticalRoute
+  '/report/$jobId': typeof ReportJobIdRoute
+  '/simulate/$jobId': typeof SimulateJobIdRoute
+  '/tracker/$jobId': typeof TrackerJobIdRoute
+  '/api/public/elevenlabs/postcall': typeof ApiPublicElevenlabsPostcallRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/confirm/$jobId'
+    | '/interview/$vertical'
+    | '/report/$jobId'
+    | '/simulate/$jobId'
+    | '/tracker/$jobId'
+    | '/api/public/elevenlabs/postcall'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/confirm/$jobId'
+    | '/interview/$vertical'
+    | '/report/$jobId'
+    | '/simulate/$jobId'
+    | '/tracker/$jobId'
+    | '/api/public/elevenlabs/postcall'
+  id:
+    | '__root__'
+    | '/'
+    | '/confirm/$jobId'
+    | '/interview/$vertical'
+    | '/report/$jobId'
+    | '/simulate/$jobId'
+    | '/tracker/$jobId'
+    | '/api/public/elevenlabs/postcall'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ConfirmJobIdRoute: typeof ConfirmJobIdRoute
+  InterviewVerticalRoute: typeof InterviewVerticalRoute
+  ReportJobIdRoute: typeof ReportJobIdRoute
+  SimulateJobIdRoute: typeof SimulateJobIdRoute
+  TrackerJobIdRoute: typeof TrackerJobIdRoute
+  ApiPublicElevenlabsPostcallRoute: typeof ApiPublicElevenlabsPostcallRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,22 +131,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tracker/$jobId': {
+      id: '/tracker/$jobId'
+      path: '/tracker/$jobId'
+      fullPath: '/tracker/$jobId'
+      preLoaderRoute: typeof TrackerJobIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/simulate/$jobId': {
+      id: '/simulate/$jobId'
+      path: '/simulate/$jobId'
+      fullPath: '/simulate/$jobId'
+      preLoaderRoute: typeof SimulateJobIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/report/$jobId': {
+      id: '/report/$jobId'
+      path: '/report/$jobId'
+      fullPath: '/report/$jobId'
+      preLoaderRoute: typeof ReportJobIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/interview/$vertical': {
+      id: '/interview/$vertical'
+      path: '/interview/$vertical'
+      fullPath: '/interview/$vertical'
+      preLoaderRoute: typeof InterviewVerticalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/confirm/$jobId': {
+      id: '/confirm/$jobId'
+      path: '/confirm/$jobId'
+      fullPath: '/confirm/$jobId'
+      preLoaderRoute: typeof ConfirmJobIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/elevenlabs/postcall': {
+      id: '/api/public/elevenlabs/postcall'
+      path: '/api/public/elevenlabs/postcall'
+      fullPath: '/api/public/elevenlabs/postcall'
+      preLoaderRoute: typeof ApiPublicElevenlabsPostcallRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ConfirmJobIdRoute: ConfirmJobIdRoute,
+  InterviewVerticalRoute: InterviewVerticalRoute,
+  ReportJobIdRoute: ReportJobIdRoute,
+  SimulateJobIdRoute: SimulateJobIdRoute,
+  TrackerJobIdRoute: TrackerJobIdRoute,
+  ApiPublicElevenlabsPostcallRoute: ApiPublicElevenlabsPostcallRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
