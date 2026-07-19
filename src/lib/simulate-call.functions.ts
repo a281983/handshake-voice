@@ -147,12 +147,19 @@ async function generateCall(args: {
     `The line_items MUST sum to bottom_line. Every number in the quote must appear in the dialogue.`,
   ].join("\n");
 
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (isGateway && lovableKey) {
+    headers["Lovable-API-Key"] = lovableKey;
+    headers["X-Lovable-AIG-SDK"] = "handshake-simulation";
+  } else {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
+    headers,
     body: JSON.stringify({
       model,
       messages: [{ role: "user", content: genPrompt }],

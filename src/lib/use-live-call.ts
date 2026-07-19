@@ -31,7 +31,7 @@ export function useLiveCall(opts: {
     bottom_line: number | null;
     add_ons_declined: string[];
     outcome: string;
-  }) => void;
+  }, transcript: LiveTurn[]) => void;
 }) {
   const getToken = useServerFn(getDealerCallToken);
   const nextTurn = useServerFn(nextNegotiatorTurn);
@@ -48,19 +48,24 @@ export function useLiveCall(opts: {
   const stoppedRef = useRef(false);
   const pendingDealerResolve = useRef<((text: string) => void) | null>(null);
   const dealerBuffer = useRef<string>("");
+  const connectResolveRef = useRef<(() => void) | null>(null);
 
   const conversation = useConversation({
-    onConnect: () => setState("live"),
+    onConnect: () => {
+      setState("live");
+      connectResolveRef.current?.();
+      connectResolveRef.current = null;
+    },
     onDisconnect: () => {
       if (!stoppedRef.current) setState("done");
     },
     onError: (e: unknown) => {
-      setError(String(e));
+      setError(typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
       setState("error");
     },
     onMessage: (msg: any) => {
       // Buffer dealer voice transcripts; resolve when we get a full response.
-      if (msg?.source === "ai" || msg?.type === "agent_response") {
+      if (msg?.role === "agent" || msg?.source === "ai" || msg?.type === "agent_response") {
         const text = msg?.message ?? msg?.agent_response_event?.agent_response ?? "";
         if (!text) return;
         dealerBuffer.current = text;
@@ -76,6 +81,20 @@ export function useLiveCall(opts: {
         pendingDealerResolve.current?.(text);
         pendingDealerResolve.current = null;
       }
+    },
+    onAgentChatResponsePart: (part: any) => {
+      const text = part?.text ?? part?.content ?? part?.message ?? "";
+      if (!text || pendingDealerResolve.current) return;
+      dealerBuffer.current = text;
+    },
+    onAgentResponseCorrection: (part: any) => {
+      const text = part?.corrected_agent_response ?? part?.text ?? "";
+      if (!text) return;
+      const turn: LiveTurn = { speaker: "dealer", text };
+      transcriptRef.current = [...transcriptRef.current, turn];
+      setTranscript((t) => [...t, turn]);
+      pendingDealerResolve.current?.(text);
+      pendingDealerResolve.current = null;
     },
   });
 
@@ -98,6 +117,18 @@ export function useLiveCall(opts: {
       };
     });
 
+  const waitForConnect = (timeoutMs = 15_000) =>
+    new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        connectResolveRef.current = null;
+        reject(new Error("Live dealer call could not connect."));
+      }, timeoutMs);
+      connectResolveRef.current = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+    });
+
   /** Drive the whole call end-to-end. */
   const start = useCallback(async () => {
     setState("connecting");
@@ -111,10 +142,11 @@ export function useLiveCall(opts: {
       // WebRTC needs a mic (SDK requirement); silence it so we don't leak room noise.
       await navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => null);
 
-      await conversation.startSession({
+      conversation.startSession({
         conversationToken: t.token,
         connectionType: "webrtc",
       });
+      await waitForConnect();
 
       // Set output volume high; the SDK handles playback natively.
       try { await conversation.setVolume?.({ volume: 1.0 }); } catch { /* noop */ }
@@ -123,6 +155,7 @@ export function useLiveCall(opts: {
       await waitForDealer(6_000);
 
       // Negotiation loop.
+      let completed = false;
       for (let step = 0; step < 12 && !stoppedRef.current; step++) {
         const nt = await nextTurn({
           data: {
@@ -144,7 +177,8 @@ export function useLiveCall(opts: {
               quote: nt.quote,
             },
           });
-          opts.onDone?.(nt.quote);
+          opts.onDone?.(nt.quote, transcriptRef.current);
+          completed = true;
           break;
         }
         if (!nt.text) break;
@@ -169,6 +203,9 @@ export function useLiveCall(opts: {
 
       stoppedRef.current = true;
       try { await conversation.endSession(); } catch { /* noop */ }
+      if (!completed) {
+        throw new Error("Live dealer call ended before a final quote was captured.");
+      }
       setState("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
