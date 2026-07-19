@@ -213,7 +213,7 @@ export function usePipeline(jobId: string) {
       }
       try {
         const u = new SpeechSynthesisUtterance(text);
-        u.rate = 1.35;
+        u.rate = 1.1;
         u.pitch = isCaller ? 1.0 : 0.85;
         u.onend = finish;
         u.onerror = finish;
