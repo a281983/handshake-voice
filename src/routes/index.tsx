@@ -28,17 +28,11 @@ function LandingPage() {
     <main className="min-h-dvh grid-bg">
       <div className="mx-auto max-w-md px-5 pt-10 pb-16 sm:max-w-3xl">
         {/* Header */}
-        <header className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary/15 border border-primary/30 grid place-items-center">
-              <Icons.Handshake className="h-4 w-4 text-primary" />
-            </div>
-            <span className="font-semibold tracking-tight">Handshake</span>
+        <header className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-primary/15 border border-primary/30 grid place-items-center">
+            <Icons.Handshake className="h-4 w-4 text-primary" />
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-[11px] text-muted-foreground text-right max-w-[70%]">
-            <span className="pulse-dot shrink-0" />
-            <span>Voice agent that makes the calls and finds the best deal for you</span>
-          </div>
+          <span className="font-semibold tracking-tight">Handshake</span>
         </header>
 
         {/* Hero */}
@@ -48,10 +42,10 @@ function LandingPage() {
             <br />
             <span className="text-primary">Get the best deal.</span>
           </h1>
-          <p className="mt-4 text-base text-muted-foreground max-w-lg">
-            Describe your requirements. We call the sellers, get itemized prices, and
-            negotiate the best deal for you.
-          </p>
+          <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-[11px] text-muted-foreground">
+            <span className="pulse-dot shrink-0" />
+            <span>Voice agent that captures your requirements, makes the calls and finds the best deal for you</span>
+          </div>
         </section>
 
         {/* Ask anything */}
