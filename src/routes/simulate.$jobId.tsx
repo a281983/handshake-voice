@@ -40,7 +40,7 @@ function SimulatePage() {
     if (p.phase === "done") {
       const t = setTimeout(
         () => navigate({ to: "/report/$jobId", params: { jobId } }),
-        1400,
+        500,
       );
       return () => clearTimeout(t);
     }
