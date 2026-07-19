@@ -44,7 +44,7 @@ function LandingPage() {
           </h1>
           <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-[11px] text-muted-foreground">
             <span className="pulse-dot shrink-0" />
-            <span>Voice agent that captures your requirements, makes the calls and finds the best deal for you</span>
+            <span>Voice agent that searches the market and negotiates the best deal</span>
           </div>
         </section>
 

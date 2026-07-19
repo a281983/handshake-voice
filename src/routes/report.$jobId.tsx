@@ -41,7 +41,7 @@ function ReportPage() {
     const savedVs = report.recommended.savings_vs_highest;
     const drop = opening != null ? opening - finalPrice : 0;
     const parts: string[] = [
-      `Here's your final deal. The recommended ${L.counterparty} is ${winner}, at a ${L.bottom_line} of $${finalPrice.toLocaleString()}.`,
+      `Alright Sarah, here's your final deal. The recommended ${L.counterparty} is ${winner}, at a ${L.bottom_line} of $${finalPrice.toLocaleString()}.`,
     ];
     if (drop > 0 && opening != null) {
       parts.push(`We got them from an opening quote of $${opening.toLocaleString()} down to $${finalPrice.toLocaleString()}, saving you $${drop.toLocaleString()} in the negotiation round.`);
@@ -51,7 +51,16 @@ function ReportPage() {
     }
     parts.push(`Every number in the final price is itemized and traced back to the call transcript, so nothing was bluffed.`);
     const utter = new SpeechSynthesisUtterance(parts.join(" "));
-    utter.rate = 1.05;
+    utter.rate = 1.02;
+    utter.pitch = 1.1;
+    try {
+      const voices = window.speechSynthesis.getVoices();
+      const en = voices.filter((v) => /^en(-|_|$)/i.test(v.lang));
+      const preferred = ["Samantha", "Karen", "Victoria", "Serena", "Google UK English Female", "Microsoft Aria", "Microsoft Jenny", "Microsoft Zira"];
+      const pick = preferred.map((n) => en.find((v) => v.name.includes(n))).find(Boolean)
+        ?? en.find((v) => /female|zira|aria|jenny|samantha/i.test(v.name));
+      if (pick) utter.voice = pick;
+    } catch { /* noop */ }
     try { window.speechSynthesis.cancel(); window.speechSynthesis.speak(utter); } catch { /* noop */ }
     return () => { try { window.speechSynthesis.cancel(); } catch { /* noop */ } };
   }, [report, quotes, vertical]);

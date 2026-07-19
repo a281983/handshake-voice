@@ -45,7 +45,7 @@ function ConfirmPage() {
   const setField = (id: string, value: string) => {
     const f = cfg.spec_schema.find((s) => s.id === id);
     let v: unknown = value;
-    if (f?.type === "number") v = Number(value) || 0;
+    if (f?.type === "number") { const n = Number(String(value).replace(/[^\d.]/g, "")); v = Number.isFinite(n) ? n : 0; }
     else if (f?.type === "string_list") v = value.split(",").map((s) => s.trim());
     else if (f?.type === "boolean") v = /^(y|yes|true)/i.test(value);
     setSpec({ ...spec, fields: { ...spec.fields, [id]: v } });

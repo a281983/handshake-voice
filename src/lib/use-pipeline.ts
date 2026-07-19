@@ -68,7 +68,21 @@ export function usePipeline(jobId: string) {
   const [error, setError] = useState<string | null>(null);
 
 
-  // Browser TTS narrator between phases (uses default voice, no ElevenLabs cost).
+  // Browser TTS narrator between phases — prefer a female voice for "Sarah" (the assistant).
+  const pickFemaleVoice = (): SpeechSynthesisVoice | null => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices?.length) return null;
+    const en = voices.filter((v) => /^en(-|_|$)/i.test(v.lang));
+    const prefer = ["Samantha", "Karen", "Victoria", "Serena", "Moira", "Tessa", "Google UK English Female", "Google US English", "Microsoft Aria", "Microsoft Jenny", "Microsoft Zira"];
+    for (const name of prefer) {
+      const hit = en.find((v) => v.name.includes(name));
+      if (hit) return hit;
+    }
+    const female = en.find((v) => /female|woman|zira|aria|jenny|samantha|karen|victoria/i.test(v.name));
+    return female ?? en[0] ?? voices[0];
+  };
+
   const narrate = (text: string): Promise<void> =>
     new Promise((resolve) => {
       setNarration(text);
@@ -79,7 +93,10 @@ export function usePipeline(jobId: string) {
       try {
         window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text);
-        u.rate = 1.05;
+        u.rate = 1.02;
+        u.pitch = 1.1;
+        const v = pickFemaleVoice();
+        if (v) u.voice = v;
         u.onend = () => resolve();
         u.onerror = () => resolve();
         window.speechSynthesis.speak(u);
@@ -124,7 +141,7 @@ export function usePipeline(jobId: string) {
   ) =>
     new Promise<void>((resolve) => {
       const a = new Audio(src);
-      a.playbackRate = 1.5;
+      a.playbackRate = 1.2;
       audioRef.current = a;
 
       let raf = 0;
@@ -279,7 +296,7 @@ export function usePipeline(jobId: string) {
       setCounterparties(disc.counterparties);
       setLabels(disc.labels);
       await narrate(
-        `I found ${disc.counterparties.length} ${disc.labels.counterparty_plural} nearby. These are the ones I'm going to call for quotes.`,
+        `Hi Sarah, welcome to Handshake. I found ${disc.counterparties.length} ${disc.labels.counterparty_plural} nearby. These are the ones I'm going to call for quotes.`,
       );
 
 
@@ -288,12 +305,12 @@ export function usePipeline(jobId: string) {
       // 2. Quote round — our agent calls each counterparty for a quote.
       setPhase("quoting");
       await setStage({ data: { jobId, stage: "quote_round" } });
-      await narrate(`Getting quotes now. Our agent is calling ${disc.counterparties[0]?.name ?? "the first dealer"} first.`);
+      await narrate(`Getting quotes now, Sarah. I'm calling ${disc.counterparties[0]?.name ?? "the first dealer"} first.`);
       await runRound(1, disc.counterparties);
       setNarration(null);
 
       // PAUSE — user reviews quotes before negotiation.
-      await narrate("We've got the quotes from the market. Ready to negotiate when you are.");
+      await narrate("Sarah, we've got the quotes from the market. Ready to negotiate when you are.");
       await waitForContinue();
 
       // 3. Leverage
@@ -304,7 +321,7 @@ export function usePipeline(jobId: string) {
       // 4. Negotiation round
       setPhase("negotiating");
       await setStage({ data: { jobId, stage: "negotiation_round" } });
-      await narrate(`Calling ${disc.counterparties[0]?.name ?? "the top dealer"} back to negotiate.`);
+      await narrate(`Calling ${disc.counterparties[0]?.name ?? "the top dealer"} back to negotiate for you, Sarah.`);
       await runRound(2, disc.counterparties);
       setNarration(null);
 

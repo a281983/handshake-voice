@@ -45,14 +45,26 @@ function InterviewPage() {
     setListening(false);
   };
 
+  const pickFemaleVoice = (): SpeechSynthesisVoice | null => {
+    if (!supportsTTS) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices?.length) return null;
+    const en = voices.filter((v) => /^en(-|_|$)/i.test(v.lang));
+    const prefer = ["Samantha", "Karen", "Victoria", "Serena", "Google UK English Female", "Microsoft Aria", "Microsoft Jenny", "Microsoft Zira"];
+    for (const n of prefer) { const hit = en.find((v) => v.name.includes(n)); if (hit) return hit; }
+    return en.find((v) => /female|zira|aria|jenny|samantha/i.test(v.name)) ?? en[0] ?? voices[0];
+  };
+
   const speak = (text: string): Promise<void> =>
     new Promise((resolve) => {
       if (!supportsTTS) return resolve();
       try {
         window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text);
-        u.rate = 1.0;
-        u.pitch = 1.0;
+        u.rate = 1.02;
+        u.pitch = 1.1;
+        const v = pickFemaleVoice();
+        if (v) u.voice = v;
         u.onstart = () => setSpeaking(true);
         u.onend = () => { setSpeaking(false); resolve(); };
         u.onerror = () => { setSpeaking(false); resolve(); };
@@ -98,7 +110,7 @@ function InterviewPage() {
         setListening(false);
         const finalText = finalRef.current.trim();
         if (voiceModeRef.current && finalText) {
-          setTimeout(() => advanceWith(finalText), 250);
+          setTimeout(() => advanceWith(finalText), 100);
         }
       };
       recognitionRef.current = rec;
@@ -115,8 +127,9 @@ function InterviewPage() {
     if (!q) return;
     setDraft("");
     finalRef.current = "";
-    await speak(q.ask);
-    setTimeout(() => startRecognition(), 150);
+    const prompt = idx === 0 ? `Hi Sarah, welcome to Handshake. ${q.ask}` : q.ask;
+    await speak(prompt);
+    setTimeout(() => startRecognition(), 60);
   };
 
   const beginVoiceInterview = async () => {
@@ -138,7 +151,7 @@ function InterviewPage() {
       const nextIdx = stepRef.current + 1;
       setStep(nextIdx);
       stepRef.current = nextIdx;
-      if (voiceModeRef.current) setTimeout(() => askAndListen(nextIdx), 350);
+      if (voiceModeRef.current) setTimeout(() => askAndListen(nextIdx), 150);
     } else {
       void submitSpec(next);
     }
@@ -160,7 +173,7 @@ function InterviewPage() {
     for (const [k, v] of Object.entries(finalAnswers)) {
       const f = cfg.spec_schema.find((s) => s.id === k);
       if (!f) { fields[k] = v; continue; }
-      if (f.type === "number") fields[k] = Number(v) || fields[k];
+      if (f.type === "number") { const n = Number(String(v).replace(/[^\d.]/g, "")); fields[k] = Number.isFinite(n) && n > 0 ? n : fields[k]; }
       else if (f.type === "string_list") fields[k] = v.split(",").map((s) => s.trim());
       else if (f.type === "boolean") fields[k] = /^(y|yes|true)/i.test(v);
       else fields[k] = v;
