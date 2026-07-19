@@ -35,17 +35,26 @@ type SimResult = {
   from_cache: boolean;
 };
 
-/** Describe the job identically on every call, from the confirmed spec. */
+/** Fields that must NEVER be disclosed verbatim to the counterparty. */
+const PRIVATE_FIELDS = new Set(["budget", "customer_name"]);
+
+/** Describe the job identically on every call, from the confirmed spec.
+ *  Excludes anything the counterparty must not hear (client name, true budget). */
 function describeJob(cfg: ReturnType<typeof getVertical>, spec: JobSpec): string {
   const f = spec.fields;
   const parts = cfg.spec_schema
-    .filter((s) => f[s.id] != null && f[s.id] !== "")
+    .filter((s) => !PRIVATE_FIELDS.has(s.id) && f[s.id] != null && f[s.id] !== "")
     .map((s) => {
       const v = f[s.id];
       const val = Array.isArray(v) ? v.join(", ") : String(v);
       return `${s.label}: ${val}`;
     });
   return parts.join(" · ");
+}
+
+function clientName(spec: JobSpec): string {
+  const raw = String(spec.fields.customer_name ?? "").trim();
+  return raw || "Sarah";
 }
 
 function callerSystem(
@@ -55,19 +64,22 @@ function callerSystem(
 ): string {
   const L = cfg.labels;
   const job = describeJob(cfg, spec);
+  const name = clientName(spec);
+  const budget = Number(spec.fields.budget) || 0;
   const round1 = `This is the FIRST call — you have no competing offer yet. Goal: get a fully itemized ${L.bottom_line}: the base price plus every fee by name. Push past vagueness ("what's the doc fee?", "anything else before I sign?"). Decline all upsells politely.`;
   const round2 = `This is a NEGOTIATION CALLBACK, and you are a HARD-BALLER closer. Persona: friendly assassin — warm, quick-witted, allergic to fluff, drops a dry one-liner when they stall. You use the competing offer like a crowbar. ${leverage}`;
   return [
     leverage
-      ? `You are Handshake, a sharp, wickedly funny closer calling a ${L.counterparty} on behalf of Sarah (the client). Think: nicest hard-baller they'll talk to today. Charming, direct, never rude — but you will absolutely quote a rival's number back at them mid-sentence.`
-      : `You are Handshake, a sharp, professional buying assistant calling a ${L.counterparty} on behalf of Sarah (the client). Warm, businesslike, brief — you talk like someone who does this every day.`,
+      ? `You are Laura, a sharp, wickedly funny closer calling a ${L.counterparty} on behalf of ${name} (the client). Think: nicest hard-baller they'll talk to today. Charming, direct, never rude — but you will absolutely quote a rival's number back at them mid-sentence.`
+      : `You are Laura, a sharp, professional buying assistant calling a ${L.counterparty} on behalf of ${name} (the client). Warm, businesslike, brief — you talk like someone who does this every day.`,
     ``,
     `The client wants: ${job}.`,
     ``,
     leverage ? round2 : round1,
     ``,
     `HARD RULES:`,
-    `- Introduce yourself as "Handshake, calling on behalf of Sarah". NEVER say "[Myname]", "[name]", "[my name]", or any bracketed placeholder — if you don't know a name, just say "Handshake, on behalf of Sarah".`,
+    `- Introduce yourself as "Laura, calling on behalf of ${name}". NEVER say "Handshake", "[Myname]", "[name]", "[my name]" or any bracketed placeholder — always use the name Laura.`,
+    `- BUDGET IS PRIVATE. Never disclose the client's budget of $${budget.toLocaleString()} unless the counterparty has already quoted a number strictly HIGHER than $${budget.toLocaleString()} AND you have no lower rival quote to cite; only then may you say "my client's ceiling is $${budget.toLocaleString()}". Otherwise the number never leaves your mouth.`,
     `- You are an AI assistant. If asked "are you a robot / am I talking to AI?", say yes plainly and keep going.`,
     `- Never invent a competing offer you don't have. Never misrepresent the client's needs.`,
     `- Always drive to a concrete ${L.bottom_line} number or a clear refusal. Never accept "around X".`,
@@ -302,10 +314,11 @@ async function runAgentSimulation(args: {
     ? (sim.round2_max_turns ?? Math.max(6, sim.max_turns - 5))
     : (sim.round1_max_turns ?? sim.max_turns);
   const negotiatorPrompt = callerSystem(cfg, spec, leverage);
+  const name = clientName(spec);
   const body = {
     simulation_specification: {
       simulated_user_config: {
-        first_message: `Hi ${persona.name.split(" ")[0]}, this is Handshake calling on behalf of Sarah — got a minute?`,
+        first_message: `Hi ${persona.name.split(" ")[0]}, this is Laura calling on behalf of ${name} — got a minute?`,
         language: "en",
         prompt: {
           prompt: `${negotiatorPrompt}\n\nYou are the CALLER on a phone call. Speak in short natural turns (1-2 sentences). End the call once you have a concrete ${L.bottom_line} number or a clear refusal — HARD CAP: do not let the call go past ${roundMax} total exchanges. Keep it tight.`,
@@ -465,9 +478,42 @@ export const simulateCall = createServerFn({ method: "POST" })
       : (simCfg.round1_max_turns ?? simCfg.max_turns);
     if (turns.length > capMax) turns = turns.slice(0, capMax);
 
+    // Reconcile the extracted bottom_line to what was ACTUALLY said in the call.
+    // If the extractor picked a number the counterparty never uttered, we fall
+    // back to the LAST plausible dollar figure the counterparty committed to
+    // (most negotiation calls end at the final agreed number). This kills the
+    // report/dialogue mismatch bug.
+    const counterpartyMoney: number[] = [];
+    for (const t of turns) {
+      if (t.speaker !== "counterparty") continue;
+      const matches = t.text.match(/\$?\s?(\d{1,3}(?:,\d{3})+|\d{4,6})/g) ?? [];
+      for (const m of matches) {
+        const n = Number(m.replace(/[^\d]/g, ""));
+        if (n >= 5000 && n <= 500000) counterpartyMoney.push(n);
+      }
+    }
+    const bl = quote.bottom_line;
+    const blInTranscript =
+      bl != null && counterpartyMoney.some((n) => Math.abs(n - bl) <= Math.max(50, bl * 0.02));
+    if (!blInTranscript && counterpartyMoney.length) {
+      // Prefer the LOWEST total-shaped number the counterparty said in the
+      // second half of the call — that's typically the final concession.
+      const secondHalf = counterpartyMoney.slice(Math.floor(counterpartyMoney.length / 2));
+      const chosen = Math.min(...(secondHalf.length ? secondHalf : counterpartyMoney));
+      quote.bottom_line = chosen;
+      // Rebuild line_items so they sum to the reconciled total. Keep the base
+      // price if we have one; put the remainder into a single "Fees & taxes"
+      // line so nothing is inflated beyond what the transcript supports.
+      const base = quote.line_items?.[0]?.amount ?? Math.round(chosen * 0.9);
+      const remainder = Math.max(0, chosen - base);
+      quote.line_items = remainder > 0
+        ? [{ label: quote.line_items?.[0]?.label ?? "Vehicle price", amount: base }, { label: "Fees & taxes", amount: remainder }]
+        : [{ label: quote.line_items?.[0]?.label ?? "Vehicle price", amount: chosen }];
+    }
+
     // Anti-hallucination anchor: which turn indices mention the bottom line.
     const quote_source_turns = turns
-      .map((t, i) => (quote.bottom_line != null && t.text.includes(String(quote.bottom_line)) ? i : -1))
+      .map((t, i) => (quote.bottom_line != null && t.text.replace(/,/g, "").includes(String(quote.bottom_line)) ? i : -1))
       .filter((i) => i >= 0);
 
     // Persist (only when freshly generated — don't duplicate a cached replay).

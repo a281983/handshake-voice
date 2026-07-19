@@ -286,6 +286,15 @@ export function usePipeline(jobId: string) {
     running.current = true;
     setError(null);
     try {
+      // Pull the client name off the job spec so narration is personalized.
+      let clientName = "Sarah";
+      try {
+        const { data: jrow } = await supabase
+          .from("jobs").select("job_spec").eq("id", jobId).single();
+        const n = (jrow?.job_spec as any)?.fields?.customer_name;
+        if (typeof n === "string" && n.trim()) clientName = n.trim().split(/\s+/)[0];
+      } catch { /* fall back to Sarah */ }
+
       // 1. Discover
       setPhase("discovering");
       await setStage({ data: { jobId, stage: "discovering" } });
@@ -296,47 +305,61 @@ export function usePipeline(jobId: string) {
       setCounterparties(disc.counterparties);
       setLabels(disc.labels);
       await narrate(
-        `Hi Sarah, welcome to Handshake. I found ${disc.counterparties.length} ${disc.labels.counterparty_plural} nearby. These are the ones I'm going to call for quotes.`,
+        `Hi ${clientName}, welcome to Handshake. I found ${disc.counterparties.length} ${disc.labels.counterparty_plural} nearby. These are the ones I'm going to call for quotes.`,
       );
-
-
-
 
       // 2. Quote round — our agent calls each counterparty for a quote.
       setPhase("quoting");
       await setStage({ data: { jobId, stage: "quote_round" } });
-      await narrate(`Getting quotes now, Sarah. I'm calling ${disc.counterparties[0]?.name ?? "the first dealer"} first.`);
+      await narrate(`Getting quotes now, ${clientName}. I'm calling ${disc.counterparties[0]?.name ?? "the first dealer"} first — the others are on the line in parallel.`);
       await runRound(1, disc.counterparties);
       setNarration(null);
 
-      // PAUSE — user reviews quotes before negotiation.
-      await narrate("Sarah, we've got the quotes from the market. Ready to negotiate when you are.");
-      await waitForContinue();
+      // Read back a summary of ALL three quotes and pick the negotiation target.
+      const quoteSummary = disc.counterparties.map((c) => {
+        const v = views[key(1, c.id)];
+        const bl = v?.result?.quote?.bottom_line ?? v?.liveBottomLine ?? null;
+        return { name: c.name, id: c.id, bl };
+      });
+      const priced = quoteSummary.filter((q) => q.bl != null) as { name: string; id: string; bl: number }[];
+      priced.sort((a, b) => a.bl - b.bl);
+      const cheapest = priced[0];
+      if (priced.length) {
+        const summaryParts = priced.map((q) => `${q.name} came in at $${q.bl.toLocaleString()}`).join("; ");
+        const bridge = cheapest
+          ? ` The best opener is ${cheapest.name}. I'm going to call them back and squeeze harder on the fees.`
+          : "";
+        await narrate(`Here's what we heard, ${clientName}: ${summaryParts}.${bridge}`);
+      } else {
+        await narrate(`${clientName}, the quotes are in. Starting negotiations.`);
+      }
 
-      // 3. Leverage
+      // 3. Leverage (brief — no separate wait, this feels like one flow now)
       setPhase("leverage");
       await setStage({ data: { jobId, stage: "building_leverage" } });
-      await narrate("Ranking the offers and arming the best competing quote as leverage.");
 
       // 4. Negotiation round
       setPhase("negotiating");
       await setStage({ data: { jobId, stage: "negotiation_round" } });
-      await narrate(`Calling ${disc.counterparties[0]?.name ?? "the top dealer"} back to negotiate for you, Sarah.`);
+      const negoTarget = cheapest?.name ?? disc.counterparties[0]?.name ?? "the top dealer";
+      await narrate(`Calling ${negoTarget} back to negotiate for you, ${clientName}.`);
       await runRound(2, disc.counterparties);
       setNarration(null);
 
-      // 5. Eval + report
+      // 5. Eval + report — no artificial waits.
       setPhase("finalizing");
       await setStage({ data: { jobId, stage: "evaluating" } });
-      await doEval({ data: { jobId } });
-      await doReport({ data: { jobId } });
+      await Promise.all([
+        doEval({ data: { jobId } }),
+        doReport({ data: { jobId } }),
+      ]);
       setPhase("done");
     } catch (e) {
       setPhase("error");
       setError(e instanceof Error ? e.message : String(e));
       running.current = false;
     }
-  }, [jobId, discover, runRound, doEval, doReport, setStage]);
+  }, [jobId, discover, runRound, doEval, doReport, setStage, views]);
 
   const stopAudio = () => {
     audioRef.current?.pause();

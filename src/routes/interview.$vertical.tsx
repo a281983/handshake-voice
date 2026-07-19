@@ -127,7 +127,15 @@ function InterviewPage() {
     if (!q) return;
     setDraft("");
     finalRef.current = "";
-    const prompt = idx === 0 ? `Hi Sarah, welcome to Handshake. ${q.ask}` : q.ask;
+    const name = (answersRef.current["customer_name"] ?? "").trim().split(/\s+/)[0];
+    const prompt =
+      idx === 0
+        ? `Hi there, welcome to Handshake. I'll help you get the right deals. ${q.ask}`
+        : name && idx === 1
+          ? `Nice to meet you ${name}. ${q.ask}`
+          : name
+            ? `${q.ask}`
+            : q.ask;
     await speak(prompt);
     setTimeout(() => startRecognition(), 60);
   };
@@ -178,11 +186,7 @@ function InterviewPage() {
       else if (f.type === "boolean") fields[k] = /^(y|yes|true)/i.test(v);
       else fields[k] = v;
     }
-    if (fields.make && typeof fields.make === "string" && (fields.make as string).includes(" ") && !finalAnswers.model) {
-      const [mk, ...rest] = (fields.make as string).split(" ");
-      fields.make = mk;
-      if (rest.length) fields.model = rest.join(" ");
-    }
+    // "Make and Model" is now a single field — keep the whole string.
 
     const spec = { vertical: cfg.id, fields };
     try {
