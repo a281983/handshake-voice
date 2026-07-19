@@ -16,10 +16,11 @@
   "spec_schema": [
     { "id": "make",        "label": "Make",        "type": "string",      "demo_critical": true,  "placeholder": "Honda" },
     { "id": "model",       "label": "Model",       "type": "string",      "demo_critical": true,  "placeholder": "CR-V" },
-    { "id": "year",        "label": "Year",        "type": "string",      "demo_critical": true,  "placeholder": "2022" },
-    { "id": "condition",   "label": "Condition",   "type": "string",      "demo_critical": true,  "default": "used" },
-    { "id": "payment_method", "label": "Payment",  "type": "string",      "demo_critical": true,  "default": "finance" },
-    { "id": "zip",         "label": "ZIP",         "type": "string",      "demo_critical": false, "default": "02139" },
+    { "id": "age_years",   "label": "Age (years)", "type": "number",      "demo_critical": true,  "placeholder": "3" },
+    { "id": "budget",      "label": "Budget ($)",  "type": "number",      "demo_critical": true,  "placeholder": "30000" },
+    { "id": "city",        "label": "City",        "type": "string",      "demo_critical": true,  "placeholder": "Boston, MA" },
+    { "id": "condition",   "label": "Condition",   "type": "string",      "demo_critical": false, "default": "used" },
+    { "id": "payment_method", "label": "Payment",  "type": "string",      "demo_critical": false, "default": "finance" },
     { "id": "trim",        "label": "Trim",        "type": "string",      "demo_critical": false, "default": "EX" },
     { "id": "mileage_max", "label": "Max mileage", "type": "number",      "demo_critical": false, "default": 40000 },
     { "id": "drivetrain",  "label": "Drivetrain",  "type": "string",      "demo_critical": false, "default": "AWD" },
@@ -32,17 +33,17 @@
   "interview": {
     "first_message": "Hey — what car are you after?",
     "questions": [
-      { "field": "make",           "ask": "What make and model?" },
-      { "field": "year",           "ask": "What year?" },
-      { "field": "condition",      "ask": "New or used?" },
-      { "field": "payment_method", "ask": "Cash or finance?" }
+      { "field": "make",      "ask": "What make and model are you after?" },
+      { "field": "age_years", "ask": "How old? A number of years — say zero if you want brand new." },
+      { "field": "budget",    "ask": "What's your budget in dollars, out the door?" },
+      { "field": "city",      "ask": "What city are you shopping in?" }
     ],
     "demo_spec": {
-      "make": "Honda", "model": "CR-V", "year": 2022, "trim": "EX",
-      "condition": "used", "mileage_max": 40000, "drivetrain": "AWD",
+      "make": "Honda", "model": "CR-V", "age_years": 3, "budget": 30000, "city": "Boston, MA",
+      "condition": "used", "trim": "EX", "mileage_max": 40000, "drivetrain": "AWD",
       "must_have_features": ["Apple CarPlay", "backup camera"],
       "color_prefs": ["grey", "black"], "payment_method": "finance",
-      "zip": "02139", "radius_miles": 30, "timeline": "within 3 weeks"
+      "radius_miles": 30, "timeline": "within 3 weeks"
     }
   },
 
