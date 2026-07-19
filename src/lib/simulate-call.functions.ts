@@ -119,6 +119,12 @@ async function generateCall(args: {
 
   const L = cfg.labels;
   const sim = cfg.simulation;
+  const roundMin = round === 2
+    ? (sim.round2_min_turns ?? Math.max(4, sim.min_turns - 3))
+    : (sim.round1_min_turns ?? sim.min_turns);
+  const roundMax = round === 2
+    ? (sim.round2_max_turns ?? Math.max(6, sim.max_turns - 5))
+    : (sim.round1_max_turns ?? sim.max_turns);
   const callerPrompt = callerSystem(cfg, spec, leverage);
   const dealerPrompt = counterpartySystem(cfg, persona, round);
 
@@ -129,9 +135,9 @@ async function generateCall(args: {
     ``,
     `COUNTERPARTY BRIEF (${persona.name}, style: ${persona.style}):\n${dealerPrompt}`,
     ``,
-    `Produce ${sim.min_turns}-${sim.max_turns} short natural turns. No stage directions. End when the caller has a firm ${L.bottom_line} number or a clear refusal.`,
+    `Produce ${roundMin}-${roundMax} short natural turns. No stage directions. End when the caller has a firm ${L.bottom_line} number or a clear refusal.`,
     round === 2
-      ? `Because the caller has real leverage, the COUNTERPARTY MUST end at a LOWER ${L.bottom_line} than a typical opening — the negotiation has to visibly work.`
+      ? `Because the caller has real leverage, the COUNTERPARTY MUST end at a LOWER ${L.bottom_line} than a typical opening — the negotiation has to visibly work. Keep it TIGHT: no filler, no repeating offers, straight to the concession.`
       : ``,
     ``,
     `Return ONLY valid JSON, no markdown fences, exactly:`,
