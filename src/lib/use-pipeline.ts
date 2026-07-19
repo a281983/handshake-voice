@@ -68,26 +68,28 @@ export function usePipeline(jobId: string) {
     round: 1 | 2;
     dealerId: string;
   } | null>(null);
-  const liveCallResolveRef = useRef<((result: {
+  type LiveCallResult = {
     turns: Array<{ speaker: "caller" | "counterparty"; text: string }>;
     quote: SimQuote;
     persona: SimResult["persona"];
     caller_voice_id: string;
-  }) => void) | null>(null);
+  };
+  const liveCallResolveRef = useRef<((result: LiveCallResult | null) => void) | null>(null);
 
   const finishLiveCall = useCallback(
-    (result: {
-      turns: Array<{ speaker: "caller" | "counterparty"; text: string }>;
-      quote: SimQuote;
-      persona: SimResult["persona"];
-      caller_voice_id: string;
-    }) => {
+    (result: LiveCallResult) => {
       liveCallResolveRef.current?.(result);
       liveCallResolveRef.current = null;
       setPendingLiveCall(null);
     },
     [],
   );
+
+  const failLiveCall = useCallback(() => {
+    liveCallResolveRef.current?.(null);
+    liveCallResolveRef.current = null;
+    setPendingLiveCall(null);
+  }, []);
 
   // Browser TTS narrator between phases (uses default voice, no ElevenLabs cost).
   const narrate = (text: string): Promise<void> =>
@@ -160,14 +162,30 @@ export function usePipeline(jobId: string) {
       // calls finishLiveCall(...) when the negotiator+dealer conversation ends.
       if (focused) {
         setPendingLiveCall({ round: r, dealerId: id });
-        const result = await new Promise<{
-          turns: Array<{ speaker: "caller" | "counterparty"; text: string }>;
-          quote: SimQuote;
-          persona: SimResult["persona"];
-          caller_voice_id: string;
-        }>((resolve) => {
+        const result = await new Promise<LiveCallResult | null>((resolve) => {
           liveCallResolveRef.current = resolve;
+          window.setTimeout(() => {
+            if (liveCallResolveRef.current === resolve) {
+              liveCallResolveRef.current = null;
+              setPendingLiveCall(null);
+              resolve(null);
+            }
+          }, 90_000);
         });
+
+        if (!result) {
+          const fallback = (await simulate({
+            data: { jobId, dealerId: id, round: r },
+          })) as SimResult;
+          setView(r, id, {
+            result: fallback,
+            turnsShown: fallback.turns.length,
+            state: "done",
+            liveBottomLine: fallback.quote.bottom_line ?? null,
+          });
+          return;
+        }
+
         setView(r, id, {
           result: {
             persona: result.persona,
@@ -179,6 +197,7 @@ export function usePipeline(jobId: string) {
           turnsShown: result.turns.length,
           state: "done",
           liveBottomLine: result.quote.bottom_line ?? null,
+        }>((resolve) => {
         });
         return;
       }
@@ -293,6 +312,7 @@ export function usePipeline(jobId: string) {
     phase, round, counterparties, activeId, views, labels, error,
     narration, awaitingContinue, continueNow,
     pendingLiveCall, finishLiveCall,
+    failLiveCall,
     start, stopAudio, key,
   };
 }
