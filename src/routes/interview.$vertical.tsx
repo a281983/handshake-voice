@@ -45,14 +45,26 @@ function InterviewPage() {
     setListening(false);
   };
 
+  const pickFemaleVoice = (): SpeechSynthesisVoice | null => {
+    if (!supportsTTS) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices?.length) return null;
+    const en = voices.filter((v) => /^en(-|_|$)/i.test(v.lang));
+    const prefer = ["Samantha", "Karen", "Victoria", "Serena", "Google UK English Female", "Microsoft Aria", "Microsoft Jenny", "Microsoft Zira"];
+    for (const n of prefer) { const hit = en.find((v) => v.name.includes(n)); if (hit) return hit; }
+    return en.find((v) => /female|zira|aria|jenny|samantha/i.test(v.name)) ?? en[0] ?? voices[0];
+  };
+
   const speak = (text: string): Promise<void> =>
     new Promise((resolve) => {
       if (!supportsTTS) return resolve();
       try {
         window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text);
-        u.rate = 1.0;
-        u.pitch = 1.0;
+        u.rate = 1.02;
+        u.pitch = 1.1;
+        const v = pickFemaleVoice();
+        if (v) u.voice = v;
         u.onstart = () => setSpeaking(true);
         u.onend = () => { setSpeaking(false); resolve(); };
         u.onerror = () => { setSpeaking(false); resolve(); };
