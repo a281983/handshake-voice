@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Volume2, User, Store, Search, Handshake, Scale, ClipboardCheck, Phone, ChevronDown, ChevronUp } from "lucide-react";
 import { usePipeline, type Phase } from "@/lib/use-pipeline";
+import { LiveCallCard } from "@/components/live-call-card";
 
 export const Route = createFileRoute("/simulate/$jobId")({
   component: SimulatePage,
@@ -128,6 +129,20 @@ function SimulatePage() {
             const isFocus = p.activeId === c.id && (p.phase === "quoting" || p.phase === "negotiating");
             const live = view?.liveBottomLine;
             const isOpen = isFocus || expanded[c.id] === true;
+            const isLive = p.pendingLiveCall?.dealerId === c.id && p.pendingLiveCall?.round === p.round;
+
+            if (isLive) {
+              return (
+                <LiveCallCard
+                  key={c.id}
+                  jobId={jobId}
+                  round={p.round}
+                  counterparty={c}
+                  bottomLabel={bottomLabel}
+                  onFinish={p.finishLiveCall}
+                />
+              );
+            }
 
             return (
               <div

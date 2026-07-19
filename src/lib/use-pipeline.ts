@@ -11,9 +11,10 @@
 import { useCallback, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { simulateCall, synthesizeTurn } from "@/lib/simulate-call.functions";
+import { simulateCall } from "@/lib/simulate-call.functions";
 import { discoverCounterparties, setJobStage } from "@/lib/discovery.functions";
 import { runEval, buildReport } from "@/lib/eval-report.functions";
+import { provisionAgents } from "@/lib/agents.functions";
 
 export type Turn = { speaker: "caller" | "counterparty"; text: string };
 export type SimQuote = {
@@ -46,11 +47,12 @@ export type CallView = {
 
 export function usePipeline(jobId: string) {
   const simulate = useServerFn(simulateCall);
-  const synth = useServerFn(synthesizeTurn);
+  
   const discover = useServerFn(discoverCounterparties);
   const doEval = useServerFn(runEval);
   const doReport = useServerFn(buildReport);
   const setStage = useServerFn(setJobStage);
+  const provision = useServerFn(provisionAgents);
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [round, setRound] = useState<1 | 2>(1);
@@ -62,6 +64,30 @@ export function usePipeline(jobId: string) {
   const [awaitingContinue, setAwaitingContinue] = useState(false);
   const continueRef = useRef<(() => void) | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pendingLiveCall, setPendingLiveCall] = useState<{
+    round: 1 | 2;
+    dealerId: string;
+  } | null>(null);
+  const liveCallResolveRef = useRef<((result: {
+    turns: Array<{ speaker: "caller" | "counterparty"; text: string }>;
+    quote: SimQuote;
+    persona: SimResult["persona"];
+    caller_voice_id: string;
+  }) => void) | null>(null);
+
+  const finishLiveCall = useCallback(
+    (result: {
+      turns: Array<{ speaker: "caller" | "counterparty"; text: string }>;
+      quote: SimQuote;
+      persona: SimResult["persona"];
+      caller_voice_id: string;
+    }) => {
+      liveCallResolveRef.current?.(result);
+      liveCallResolveRef.current = null;
+      setPendingLiveCall(null);
+    },
+    [],
+  );
 
   // Browser TTS narrator between phases (uses default voice, no ElevenLabs cost).
   const narrate = (text: string): Promise<void> =>
@@ -129,6 +155,35 @@ export function usePipeline(jobId: string) {
       if (focused) setActiveId(id);
       setView(r, id, { state: "on_call", turnsShown: 0 });
 
+      // LIVE PATH: focused call goes through the real ElevenLabs Convai agent.
+      // Simulate page mounts a <LiveCallCard> when pendingLiveCall is set, and
+      // calls finishLiveCall(...) when the negotiator+dealer conversation ends.
+      if (focused) {
+        setPendingLiveCall({ round: r, dealerId: id });
+        const result = await new Promise<{
+          turns: Array<{ speaker: "caller" | "counterparty"; text: string }>;
+          quote: SimQuote;
+          persona: SimResult["persona"];
+          caller_voice_id: string;
+        }>((resolve) => {
+          liveCallResolveRef.current = resolve;
+        });
+        setView(r, id, {
+          result: {
+            persona: result.persona,
+            caller_voice_id: result.caller_voice_id,
+            turns: result.turns,
+            quote: result.quote,
+            from_cache: false,
+          },
+          turnsShown: result.turns.length,
+          state: "done",
+          liveBottomLine: result.quote.bottom_line ?? null,
+        });
+        return;
+      }
+
+      // BACKGROUND path (simulated).
       const res = (await simulate({
         data: { jobId, dealerId: id, round: r },
       })) as SimResult;
@@ -141,31 +196,14 @@ export function usePipeline(jobId: string) {
           turnsShown: i + 1,
           ...(money ? { liveBottomLine: money } : {}),
         });
-        // Only the focused call plays audio (background calls stream silently).
-        if (focused) {
-          try {
-            const { audioBase64, mime } = (await synth({
-              data: {
-                text: turn.text,
-                voiceId: turn.speaker === "caller" ? res.caller_voice_id : res.persona.voice_id,
-              },
-            })) as { audioBase64: string | null; mime: string };
-            if (audioBase64) await play(`data:${mime};base64,${audioBase64}`);
-            else await new Promise((rs) => setTimeout(rs, 500));
-          } catch {
-            await new Promise((rs) => setTimeout(rs, 500));
-          }
-        } else {
-          // Background pacing so cards animate without audio.
-          await new Promise((rs) => setTimeout(rs, 320));
-        }
+        await new Promise((rs) => setTimeout(rs, 320));
       }
       setView(r, id, {
         state: "done",
         liveBottomLine: res.quote.bottom_line ?? null,
       });
     },
-    [jobId, simulate, synth],
+    [jobId, simulate],
   );
 
   /** Run a round: focus the first counterparty (audio), others in background. */
@@ -199,6 +237,14 @@ export function usePipeline(jobId: string) {
       await narrate(
         `I found ${disc.counterparties.length} ${disc.labels.counterparty_plural} nearby. These are the ones I'm going to call for quotes.`,
       );
+
+      // 1b. Provision live ElevenLabs Convai agents (idempotent).
+      try {
+        await provision({ data: { jobId } });
+      } catch (e) {
+        // Non-fatal — LiveCallCard will surface its own error if the mic/agent fails.
+        console.warn("provisionAgents failed", e);
+      }
 
       // 2. Quote round — our agent calls each counterparty for a quote.
       setPhase("quoting");
@@ -246,6 +292,7 @@ export function usePipeline(jobId: string) {
   return {
     phase, round, counterparties, activeId, views, labels, error,
     narration, awaitingContinue, continueNow,
+    pendingLiveCall, finishLiveCall,
     start, stopAudio, key,
   };
 }
