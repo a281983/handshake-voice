@@ -128,7 +128,10 @@ function SimulatePage() {
             const state = view?.state ?? "pending";
             const isFocus = p.activeId === c.id && (p.phase === "quoting" || p.phase === "negotiating");
             const live = view?.liveBottomLine;
-            const isOpen = isFocus || expanded[c.id] === true;
+            // During the quote round, auto-expand background dealers as soon as
+            // their transcript is done so the user sees all 3 quotes side-by-side.
+            const autoOpen = p.phase === "quoting" && state === "done";
+            const isOpen = isFocus || autoOpen || expanded[c.id] === true;
 
 
 
