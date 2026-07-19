@@ -314,10 +314,11 @@ async function runAgentSimulation(args: {
     ? (sim.round2_max_turns ?? Math.max(6, sim.max_turns - 5))
     : (sim.round1_max_turns ?? sim.max_turns);
   const negotiatorPrompt = callerSystem(cfg, spec, leverage);
+  const name = clientName(spec);
   const body = {
     simulation_specification: {
       simulated_user_config: {
-        first_message: `Hi ${persona.name.split(" ")[0]}, this is Handshake calling on behalf of Sarah — got a minute?`,
+        first_message: `Hi ${persona.name.split(" ")[0]}, this is Laura calling on behalf of ${name} — got a minute?`,
         language: "en",
         prompt: {
           prompt: `${negotiatorPrompt}\n\nYou are the CALLER on a phone call. Speak in short natural turns (1-2 sentences). End the call once you have a concrete ${L.bottom_line} number or a clear refusal — HARD CAP: do not let the call go past ${roundMax} total exchanges. Keep it tight.`,
