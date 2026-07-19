@@ -137,6 +137,7 @@ export function useLiveCall(opts: {
       await waitForDealer(6_000);
 
       // Negotiation loop.
+      let completed = false;
       for (let step = 0; step < 12 && !stoppedRef.current; step++) {
         const nt = await nextTurn({
           data: {
@@ -159,6 +160,7 @@ export function useLiveCall(opts: {
             },
           });
           opts.onDone?.(nt.quote, transcriptRef.current);
+          completed = true;
           break;
         }
         if (!nt.text) break;
@@ -183,6 +185,9 @@ export function useLiveCall(opts: {
 
       stoppedRef.current = true;
       try { await conversation.endSession(); } catch { /* noop */ }
+      if (!completed) {
+        throw new Error("Live dealer call ended before a final quote was captured.");
+      }
       setState("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
