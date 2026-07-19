@@ -153,6 +153,35 @@ export function usePipeline(jobId: string) {
       if (focused) setActiveId(id);
       setView(r, id, { state: "on_call", turnsShown: 0 });
 
+      // LIVE PATH: focused call goes through the real ElevenLabs Convai agent.
+      // Simulate page mounts a <LiveCallCard> when pendingLiveCall is set, and
+      // calls finishLiveCall(...) when the negotiator+dealer conversation ends.
+      if (focused) {
+        setPendingLiveCall({ round: r, dealerId: id });
+        const result = await new Promise<{
+          turns: Array<{ speaker: "caller" | "counterparty"; text: string }>;
+          quote: SimQuote;
+          persona: SimResult["persona"];
+          caller_voice_id: string;
+        }>((resolve) => {
+          liveCallResolveRef.current = resolve;
+        });
+        setView(r, id, {
+          result: {
+            persona: result.persona,
+            caller_voice_id: result.caller_voice_id,
+            turns: result.turns,
+            quote: result.quote,
+            from_cache: false,
+          },
+          turnsShown: result.turns.length,
+          state: "done",
+          liveBottomLine: result.quote.bottom_line ?? null,
+        });
+        return;
+      }
+
+      // BACKGROUND path (simulated).
       const res = (await simulate({
         data: { jobId, dealerId: id, round: r },
       })) as SimResult;
@@ -165,31 +194,14 @@ export function usePipeline(jobId: string) {
           turnsShown: i + 1,
           ...(money ? { liveBottomLine: money } : {}),
         });
-        // Only the focused call plays audio (background calls stream silently).
-        if (focused) {
-          try {
-            const { audioBase64, mime } = (await synth({
-              data: {
-                text: turn.text,
-                voiceId: turn.speaker === "caller" ? res.caller_voice_id : res.persona.voice_id,
-              },
-            })) as { audioBase64: string | null; mime: string };
-            if (audioBase64) await play(`data:${mime};base64,${audioBase64}`);
-            else await new Promise((rs) => setTimeout(rs, 500));
-          } catch {
-            await new Promise((rs) => setTimeout(rs, 500));
-          }
-        } else {
-          // Background pacing so cards animate without audio.
-          await new Promise((rs) => setTimeout(rs, 320));
-        }
+        await new Promise((rs) => setTimeout(rs, 320));
       }
       setView(r, id, {
         state: "done",
         liveBottomLine: res.quote.bottom_line ?? null,
       });
     },
-    [jobId, simulate, synth],
+    [jobId, simulate],
   );
 
   /** Run a round: focus the first counterparty (audio), others in background. */
