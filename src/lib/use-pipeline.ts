@@ -46,7 +46,7 @@ export type CallView = {
 
 export function usePipeline(jobId: string) {
   const simulate = useServerFn(simulateCall);
-  const synth = useServerFn(synthesizeTurn);
+  
   const discover = useServerFn(discoverCounterparties);
   const doEval = useServerFn(runEval);
   const doReport = useServerFn(buildReport);
