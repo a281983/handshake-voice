@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Check, Loader2, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getVertical } from "@/lib/registry";
+import { confirmJobSpec } from "@/lib/jobs.functions";
 import type { JobSpec } from "@/lib/types";
 
 export const Route = createFileRoute("/confirm/$jobId")({
