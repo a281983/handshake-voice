@@ -75,6 +75,7 @@ export function usePipeline(jobId: string) {
   const play = (src: string) =>
     new Promise<void>((resolve) => {
       const a = new Audio(src);
+      a.playbackRate = 1.5;
       audioRef.current = a;
       a.onended = () => resolve();
       a.onerror = () => resolve();
