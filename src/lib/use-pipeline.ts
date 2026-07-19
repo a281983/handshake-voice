@@ -338,12 +338,18 @@ export function usePipeline(jobId: string) {
       setPhase("leverage");
       await setStage({ data: { jobId, stage: "building_leverage" } });
 
-      // 4. Negotiation round
+      // 4. Negotiation round — ONLY with the cheapest opener, so the final
+      // recommendation is the dealer we actually negotiated against. Others
+      // stay at their round-1 quote and are shown for comparison.
       setPhase("negotiating");
       await setStage({ data: { jobId, stage: "negotiation_round" } });
-      const negoTarget = cheapest?.name ?? disc.counterparties[0]?.name ?? "the top dealer";
+      const negoDealer = cheapest
+        ? disc.counterparties.find((c) => c.id === cheapest.id) ?? disc.counterparties[0]
+        : disc.counterparties[0];
+      const negoTarget = negoDealer?.name ?? "the top dealer";
       await narrate(`Calling ${negoTarget} back to negotiate for you, ${clientName}.`);
-      await runRound(2, disc.counterparties);
+      await runRound(2, [negoDealer]);
+
       setNarration(null);
 
       // 5. Eval + report — no artificial waits.
