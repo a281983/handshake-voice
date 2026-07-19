@@ -41,7 +41,7 @@ function dealerAgentBody(
           temperature: 0.6,
         },
       },
-      tts: { voice_id: persona.voice_id, model_id: "eleven_turbo_v2_5" },
+      tts: { voice_id: persona.voice_id, model_id: "eleven_turbo_v2" },
       asr: { quality: "high" },
     },
   };
