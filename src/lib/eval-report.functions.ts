@@ -170,10 +170,15 @@ export const buildReport = createServerFn({ method: "POST" })
       recommended: winner && {
         dealer_id: winner.dealer_id,
         dealer_name: winner.dealer_name,
-        reason: `Lowest ${L.bottom_line} after negotiation${caveat}`,
+        reason: negotiatedIds.has(winner.dealer_id)
+          ? `Negotiated ${L.bottom_line} with ${winner.dealer_name}${caveat}`
+          : `Lowest ${L.bottom_line}${caveat}`,
         savings_vs_highest:
-          highest ? highest.final_bottom_line - winner.final_bottom_line : 0,
+          highest && highest.final_bottom_line > winner.final_bottom_line
+            ? highest.final_bottom_line - winner.final_bottom_line
+            : 0,
       },
+
       red_flags,
       eval: {
         passed:
