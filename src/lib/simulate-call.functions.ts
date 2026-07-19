@@ -456,6 +456,12 @@ export const simulateCall = createServerFn({ method: "POST" })
         from_cache = true;
       }
     }
+    // Enforce round-specific hard cap on turn count.
+    const simCfg = cfg.simulation;
+    const capMax = data.round === 2
+      ? (simCfg.round2_max_turns ?? Math.max(6, simCfg.max_turns - 5))
+      : (simCfg.round1_max_turns ?? simCfg.max_turns);
+    if (turns.length > capMax) turns = turns.slice(0, capMax);
 
     // Anti-hallucination anchor: which turn indices mention the bottom line.
     const quote_source_turns = turns
