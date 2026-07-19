@@ -295,6 +295,10 @@ async function runAgentSimulation(args: {
   const apiKey = process.env.ELEVENLABS_API_KEY!;
   const { cfg, persona, spec, round, leverage } = args;
   const L = cfg.labels;
+  const sim = cfg.simulation;
+  const roundMax = round === 2
+    ? (sim.round2_max_turns ?? Math.max(6, sim.max_turns - 5))
+    : (sim.round1_max_turns ?? sim.max_turns);
   const negotiatorPrompt = callerSystem(cfg, spec, leverage);
   const body = {
     simulation_specification: {
@@ -302,9 +306,10 @@ async function runAgentSimulation(args: {
         first_message: `Hi ${persona.name.split(" ")[0]}, this is Handshake calling on behalf of a client — got a minute?`,
         language: "en",
         prompt: {
-          prompt: `${negotiatorPrompt}\n\nYou are the CALLER on a phone call. Speak in short natural turns (1-2 sentences). End the call once you have a concrete ${L.bottom_line} number or a clear refusal — do not let it drag past 10 exchanges.`,
+          prompt: `${negotiatorPrompt}\n\nYou are the CALLER on a phone call. Speak in short natural turns (1-2 sentences). End the call once you have a concrete ${L.bottom_line} number or a clear refusal — HARD CAP: do not let the call go past ${roundMax} total exchanges. Keep it tight.`,
         },
       },
+      new_turns_limit: roundMax,
     },
   };
   const res = await fetch(
@@ -326,7 +331,8 @@ async function runAgentSimulation(args: {
     .map((t) => ({
       speaker: t.role === "user" ? "caller" : "counterparty",
       text: t.message,
-    }));
+    }))
+    .slice(0, roundMax);
   console.log(`[real-agent] ${persona.name} r${round}: ${turns.length} turns via agent ${args.agentId}`);
   return turns;
 }
