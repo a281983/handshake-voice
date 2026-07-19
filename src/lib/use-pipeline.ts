@@ -142,7 +142,7 @@ export function usePipeline(jobId: string) {
   ) =>
     new Promise<void>((resolve) => {
       const a = new Audio(src);
-      a.playbackRate = 1.2;
+      a.playbackRate = 1.1;
       audioRef.current = a;
 
       let raf = 0;
@@ -213,7 +213,7 @@ export function usePipeline(jobId: string) {
       }
       try {
         const u = new SpeechSynthesisUtterance(text);
-        u.rate = 1.35;
+        u.rate = 1.1;
         u.pitch = isCaller ? 1.0 : 0.85;
         u.onend = finish;
         u.onerror = finish;
