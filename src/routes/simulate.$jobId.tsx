@@ -23,6 +23,7 @@ function SimulatePage() {
   const navigate = useNavigate();
   const p = usePipeline(jobId);
   const startedRef = useRef(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   // Auto-run once, off the confirm gesture that brought us here (audio unlocked).
   useEffect(() => {
