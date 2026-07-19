@@ -105,8 +105,12 @@
   "caller_voice_id": "cgSgspJ2msm6clMCkdW9",
 
   "simulation": {
-    "min_turns": 8,
-    "max_turns": 12,
+    "min_turns": 6,
+    "max_turns": 8,
+    "round1_min_turns": 5,
+    "round1_max_turns": 7,
+    "round2_min_turns": 4,
+    "round2_max_turns": 6,
     "model": "gpt-4o-mini"
   }
 }

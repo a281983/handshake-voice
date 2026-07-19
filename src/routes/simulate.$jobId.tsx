@@ -180,27 +180,38 @@ function SimulatePage() {
                   )}
                 </div>
 
-                {/* Transcript: full for focus, collapsible for others */}
-                {res && shown > 0 && isOpen && (
-                  <div className="mt-3 space-y-2">
-                    {res.turns.slice(0, shown).map((t, i) => (
-                      <div
-                        key={i}
-                        className={`flex gap-2 text-sm ${t.speaker === "caller" ? "" : "flex-row-reverse text-right"}`}
-                      >
-                        <div className={`h-6 w-6 shrink-0 rounded-full grid place-items-center ${t.speaker === "caller" ? "bg-primary/15 text-primary" : "bg-muted"}`}>
-                          {t.speaker === "caller" ? <User className="h-3 w-3" /> : <Store className="h-3 w-3" />}
+                {/* Transcript: full for focus, collapsible for others. Renders completed turns plus a live-typing bubble in sync with voice. */}
+                {res && isOpen && (shown > 0 || view?.typing) && (() => {
+                  const typing = view?.typing;
+                  const bubbles: Array<{ turn: typeof res.turns[number]; text: string; typing?: boolean }> = [];
+                  for (let i = 0; i < shown; i++) {
+                    bubbles.push({ turn: res.turns[i], text: res.turns[i].text });
+                  }
+                  if (typing && typing.index >= shown && res.turns[typing.index]) {
+                    bubbles.push({ turn: res.turns[typing.index], text: typing.text, typing: true });
+                  }
+                  return (
+                    <div className="mt-3 space-y-2">
+                      {bubbles.map((b, i) => (
+                        <div
+                          key={i}
+                          className={`flex gap-2 text-sm ${b.turn.speaker === "caller" ? "" : "flex-row-reverse text-right"}`}
+                        >
+                          <div className={`h-6 w-6 shrink-0 rounded-full grid place-items-center ${b.turn.speaker === "caller" ? "bg-primary/15 text-primary" : "bg-muted"}`}>
+                            {b.turn.speaker === "caller" ? <User className="h-3 w-3" /> : <Store className="h-3 w-3" />}
+                          </div>
+                          <div className={`rounded-2xl px-3 py-1.5 max-w-[85%] text-[13px] leading-snug ${b.turn.speaker === "caller" ? "bg-primary/10" : "bg-muted"}`}>
+                            {b.text}
+                            {b.typing && <span className="inline-block w-1.5 h-3 ml-0.5 bg-current align-middle animate-pulse" />}
+                          </div>
                         </div>
-                        <div className={`rounded-2xl px-3 py-1.5 max-w-[85%] text-[13px] leading-snug ${t.speaker === "caller" ? "bg-primary/10" : "bg-muted"}`}>
-                          {t.text}
-                        </div>
-                      </div>
-                    ))}
-                    {res.from_cache && (
-                      <p className="text-[10px] text-muted-foreground/70 font-mono text-center pt-1">replayed from cache</p>
-                    )}
-                  </div>
-                )}
+                      ))}
+                      {res.from_cache && (
+                        <p className="text-[10px] text-muted-foreground/70 font-mono text-center pt-1">replayed from cache</p>
+                      )}
+                    </div>
+                  );
+                })()}
                 {!isFocus && res && !isOpen && shown > 0 && (
                   <p className="mt-2 text-[11px] text-muted-foreground truncate">
                     Latest: "{res.turns[shown - 1]?.text}"

@@ -119,6 +119,12 @@ async function generateCall(args: {
 
   const L = cfg.labels;
   const sim = cfg.simulation;
+  const roundMin = round === 2
+    ? (sim.round2_min_turns ?? Math.max(4, sim.min_turns - 3))
+    : (sim.round1_min_turns ?? sim.min_turns);
+  const roundMax = round === 2
+    ? (sim.round2_max_turns ?? Math.max(6, sim.max_turns - 5))
+    : (sim.round1_max_turns ?? sim.max_turns);
   const callerPrompt = callerSystem(cfg, spec, leverage);
   const dealerPrompt = counterpartySystem(cfg, persona, round);
 
@@ -129,9 +135,9 @@ async function generateCall(args: {
     ``,
     `COUNTERPARTY BRIEF (${persona.name}, style: ${persona.style}):\n${dealerPrompt}`,
     ``,
-    `Produce ${sim.min_turns}-${sim.max_turns} short natural turns. No stage directions. End when the caller has a firm ${L.bottom_line} number or a clear refusal.`,
+    `Produce ${roundMin}-${roundMax} short natural turns. No stage directions. End when the caller has a firm ${L.bottom_line} number or a clear refusal.`,
     round === 2
-      ? `Because the caller has real leverage, the COUNTERPARTY MUST end at a LOWER ${L.bottom_line} than a typical opening — the negotiation has to visibly work.`
+      ? `Because the caller has real leverage, the COUNTERPARTY MUST end at a LOWER ${L.bottom_line} than a typical opening — the negotiation has to visibly work. Keep it TIGHT: no filler, no repeating offers, straight to the concession.`
       : ``,
     ``,
     `Return ONLY valid JSON, no markdown fences, exactly:`,
@@ -289,6 +295,10 @@ async function runAgentSimulation(args: {
   const apiKey = process.env.ELEVENLABS_API_KEY!;
   const { cfg, persona, spec, round, leverage } = args;
   const L = cfg.labels;
+  const sim = cfg.simulation;
+  const roundMax = round === 2
+    ? (sim.round2_max_turns ?? Math.max(6, sim.max_turns - 5))
+    : (sim.round1_max_turns ?? sim.max_turns);
   const negotiatorPrompt = callerSystem(cfg, spec, leverage);
   const body = {
     simulation_specification: {
@@ -296,9 +306,10 @@ async function runAgentSimulation(args: {
         first_message: `Hi ${persona.name.split(" ")[0]}, this is Handshake calling on behalf of a client — got a minute?`,
         language: "en",
         prompt: {
-          prompt: `${negotiatorPrompt}\n\nYou are the CALLER on a phone call. Speak in short natural turns (1-2 sentences). End the call once you have a concrete ${L.bottom_line} number or a clear refusal — do not let it drag past 10 exchanges.`,
+          prompt: `${negotiatorPrompt}\n\nYou are the CALLER on a phone call. Speak in short natural turns (1-2 sentences). End the call once you have a concrete ${L.bottom_line} number or a clear refusal — HARD CAP: do not let the call go past ${roundMax} total exchanges. Keep it tight.`,
         },
       },
+      new_turns_limit: roundMax,
     },
   };
   const res = await fetch(
@@ -318,9 +329,10 @@ async function runAgentSimulation(args: {
   const turns: Turn[] = (payload.simulated_conversation ?? [])
     .filter((t) => t?.message)
     .map((t) => ({
-      speaker: t.role === "user" ? "caller" : "counterparty",
+      speaker: (t.role === "user" ? "caller" : "counterparty") as "caller" | "counterparty",
       text: t.message,
-    }));
+    }))
+    .slice(0, roundMax);
   console.log(`[real-agent] ${persona.name} r${round}: ${turns.length} turns via agent ${args.agentId}`);
   return turns;
 }
@@ -444,6 +456,12 @@ export const simulateCall = createServerFn({ method: "POST" })
         from_cache = true;
       }
     }
+    // Enforce round-specific hard cap on turn count.
+    const simCfg = cfg.simulation;
+    const capMax = data.round === 2
+      ? (simCfg.round2_max_turns ?? Math.max(6, simCfg.max_turns - 5))
+      : (simCfg.round1_max_turns ?? simCfg.max_turns);
+    if (turns.length > capMax) turns = turns.slice(0, capMax);
 
     // Anti-hallucination anchor: which turn indices mention the bottom line.
     const quote_source_turns = turns
