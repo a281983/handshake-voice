@@ -62,6 +62,30 @@ export function usePipeline(jobId: string) {
   const [awaitingContinue, setAwaitingContinue] = useState(false);
   const continueRef = useRef<(() => void) | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pendingLiveCall, setPendingLiveCall] = useState<{
+    round: 1 | 2;
+    dealerId: string;
+  } | null>(null);
+  const liveCallResolveRef = useRef<((result: {
+    turns: Array<{ speaker: "caller" | "counterparty"; text: string }>;
+    quote: SimQuote;
+    persona: SimResult["persona"];
+    caller_voice_id: string;
+  }) => void) | null>(null);
+
+  const finishLiveCall = useCallback(
+    (result: {
+      turns: Array<{ speaker: "caller" | "counterparty"; text: string }>;
+      quote: SimQuote;
+      persona: SimResult["persona"];
+      caller_voice_id: string;
+    }) => {
+      liveCallResolveRef.current?.(result);
+      liveCallResolveRef.current = null;
+      setPendingLiveCall(null);
+    },
+    [],
+  );
 
   // Browser TTS narrator between phases (uses default voice, no ElevenLabs cost).
   const narrate = (text: string): Promise<void> =>
