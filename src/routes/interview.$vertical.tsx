@@ -127,7 +127,15 @@ function InterviewPage() {
     if (!q) return;
     setDraft("");
     finalRef.current = "";
-    const prompt = idx === 0 ? `Hi Sarah, welcome to Handshake. ${q.ask}` : q.ask;
+    const name = (answersRef.current["customer_name"] ?? "").trim().split(/\s+/)[0];
+    const prompt =
+      idx === 0
+        ? `Hi there, welcome to Handshake. I'll help you get the right deals. ${q.ask}`
+        : name && idx === 1
+          ? `Nice to meet you ${name}. ${q.ask}`
+          : name
+            ? `${q.ask}`
+            : q.ask;
     await speak(prompt);
     setTimeout(() => startRecognition(), 60);
   };
