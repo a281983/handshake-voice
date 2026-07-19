@@ -323,9 +323,12 @@ export function usePipeline(jobId: string) {
       // 2. Quote round — our agent calls each counterparty for a quote.
       setPhase("quoting");
       await setStage({ data: { jobId, stage: "quote_round" } });
-      await narrate(`Getting quotes now, ${clientName}. I'm calling ${disc.counterparties[0]?.name ?? "the first dealer"} first — the others are on the line in parallel.`);
+      const firstQuoteDealer = disc.counterparties[0]?.name ?? "the first dealer";
+      await narrate(`Getting quotes now, ${clientName}. I'm calling ${firstQuoteDealer} first — the others are on the line in parallel.`);
+      await narrate(`Listen in — Laura, my calling agent, is on the line with ${firstQuoteDealer} right now.`);
       await runRound(1, disc.counterparties);
       setNarration(null);
+
 
       // Read back a summary of ALL three quotes and pick the negotiation target.
       const quoteSummary = disc.counterparties.map((c) => {
