@@ -91,12 +91,34 @@ export const discoverCounterparties = createServerFn({ method: "POST" })
       { onConflict: "job_id,dealer_id" },
     );
 
+    // Attach a plausible phone number keyed by the user's city (area code map).
+    const cityRaw = String((spec.fields as any).city ?? (spec.fields as any).zip ?? "").toLowerCase();
+    const AREA: Record<string, string> = {
+      "new york": "212", "nyc": "212", "brooklyn": "718", "queens": "718",
+      "los angeles": "213", "la": "213", "san francisco": "415", "sf": "415",
+      "oakland": "510", "san jose": "408", "seattle": "206", "portland": "503",
+      "chicago": "312", "boston": "617", "cambridge": "617", "miami": "305",
+      "atlanta": "404", "dallas": "214", "houston": "713", "austin": "512",
+      "denver": "303", "phoenix": "602", "philadelphia": "215", "washington": "202",
+      "dc": "202", "detroit": "313", "minneapolis": "612", "san diego": "619",
+      "las vegas": "702", "nashville": "615", "charlotte": "704",
+    };
+    const area = Object.entries(AREA).find(([k]) => cityRaw.includes(k))?.[1] ?? "555";
+    const phoneFor = (seed: string) => {
+      let h = 0;
+      for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+      const mid = String(200 + (h % 800)).padStart(3, "0");
+      const end = String(1000 + (h % 9000)).padStart(4, "0");
+      return `(${area}) ${mid}-${end}`;
+    };
+
     return {
       counterparties: cfg.personas.map((p) => ({
         id: p.id,
         name: p.name,
         style: p.style,
         voice_id: p.voice_id,
+        phone: phoneFor(p.id + "|" + cityRaw),
       })),
       demo_mode: cfg.demo_mode,
       labels: cfg.labels,

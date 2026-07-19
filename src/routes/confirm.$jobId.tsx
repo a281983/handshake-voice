@@ -72,10 +72,8 @@ function ConfirmPage() {
     navigate({ to: "/simulate/$jobId", params: { jobId } });
   };
 
-  // Show the demo-critical fields first, then the rest.
-  const ordered = [...cfg.spec_schema].sort(
-    (a, b) => Number(b.demo_critical) - Number(a.demo_critical),
-  );
+  // Show only the fields we actually asked the user about; keep defaults hidden.
+  const ordered = cfg.spec_schema.filter((s) => s.demo_critical);
 
   return (
     <main className="min-h-dvh grid-bg pb-28">
@@ -131,7 +129,7 @@ function ConfirmPage() {
             className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-4 text-base font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
             {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
-            {busy ? "Starting…" : `Confirm — call the ${L.counterparty_plural}`}
+            {busy ? "Starting…" : "Confirm — Get me the best deal!"}
           </button>
           <p className="mt-2 text-center text-[11px] text-muted-foreground">
             Sound on. From here it's hands-free.

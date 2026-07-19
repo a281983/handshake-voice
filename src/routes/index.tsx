@@ -1,8 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import * as Icons from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { listVerticals, getVertical } from "@/lib/registry";
+import { listVerticals } from "@/lib/registry";
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
@@ -11,7 +10,6 @@ export const Route = createFileRoute("/")({
 function LandingPage() {
   const navigate = useNavigate();
   const [ask, setAsk] = useState("");
-  const [busy, setBusy] = useState(false);
   const verticals = listVerticals();
 
   // Route a free-form "ask anything" request to the best-matching vertical.
@@ -25,21 +23,6 @@ function LandingPage() {
     navigate({ to: "/interview/$vertical", params: { vertical: match.id } });
   };
 
-  const startDemo = async () => {
-    setBusy(true);
-    const cfg = getVertical("car_buying");
-    const spec = { vertical: cfg.id, fields: cfg.interview.demo_spec };
-    const { data, error } = await supabase
-      .from("jobs")
-      .insert({ vertical: cfg.id, job_spec: spec as unknown as never, stage: "intake" })
-      .select("id")
-      .single();
-    if (error || !data) {
-      setBusy(false);
-      return;
-    }
-    navigate({ to: "/confirm/$jobId", params: { jobId: data.id } });
-  };
 
   return (
     <main className="min-h-dvh grid-bg">
@@ -135,26 +118,6 @@ function LandingPage() {
           </div>
         </section>
 
-        {/* Demo fast-path */}
-        <section className="mt-6">
-          <button
-            onClick={startDemo}
-            disabled={busy}
-            className="w-full rounded-2xl border border-primary/30 bg-primary/5 p-4 text-left hover:bg-primary/10 transition disabled:opacity-50"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 text-primary text-[11px] font-mono uppercase tracking-wider">
-                  <Icons.Zap className="h-3.5 w-3.5" /> Demo fast-path
-                </div>
-                <p className="mt-1.5 text-sm">Skip the interview — run a 2022 Honda CR-V.</p>
-              </div>
-              <div className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shrink-0">
-                {busy ? "…" : "Run"}
-              </div>
-            </div>
-          </button>
-        </section>
 
         <footer className="mt-14 text-[11px] text-muted-foreground/60 border-t border-border pt-5">
           16,851 tiny dealers will never adopt quoting software. Every one answers the phone.
