@@ -72,10 +72,8 @@ function ConfirmPage() {
     navigate({ to: "/simulate/$jobId", params: { jobId } });
   };
 
-  // Show the demo-critical fields first, then the rest.
-  const ordered = [...cfg.spec_schema].sort(
-    (a, b) => Number(b.demo_critical) - Number(a.demo_critical),
-  );
+  // Show only the fields we actually asked the user about; keep defaults hidden.
+  const ordered = cfg.spec_schema.filter((s) => s.demo_critical);
 
   return (
     <main className="min-h-dvh grid-bg pb-28">
