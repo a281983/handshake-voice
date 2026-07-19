@@ -110,7 +110,7 @@ function InterviewPage() {
         setListening(false);
         const finalText = finalRef.current.trim();
         if (voiceModeRef.current && finalText) {
-          setTimeout(() => advanceWith(finalText), 250);
+          setTimeout(() => advanceWith(finalText), 100);
         }
       };
       recognitionRef.current = rec;
