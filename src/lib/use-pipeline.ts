@@ -11,7 +11,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { simulateCall, synthesizeTurn } from "@/lib/simulate-call.functions";
+import { simulateCall } from "@/lib/simulate-call.functions";
 import { discoverCounterparties, setJobStage } from "@/lib/discovery.functions";
 import { runEval, buildReport } from "@/lib/eval-report.functions";
 
