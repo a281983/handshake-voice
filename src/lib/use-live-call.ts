@@ -117,7 +117,7 @@ export function useLiveCall(opts: {
       });
 
       // Set output volume high; the SDK handles playback natively.
-      await conversation.setVolume?.({ volume: 1.0 }).catch(() => {});
+      try { await conversation.setVolume?.({ volume: 1.0 }); } catch { /* noop */ }
 
       // Wait for the dealer's first greeting.
       await waitForDealer(6_000);
