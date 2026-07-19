@@ -127,8 +127,9 @@ function InterviewPage() {
     if (!q) return;
     setDraft("");
     finalRef.current = "";
-    await speak(q.ask);
-    setTimeout(() => startRecognition(), 150);
+    const prompt = idx === 0 ? `Hi Sarah, welcome to Handshake. ${q.ask}` : q.ask;
+    await speak(prompt);
+    setTimeout(() => startRecognition(), 60);
   };
 
   const beginVoiceInterview = async () => {
@@ -150,7 +151,7 @@ function InterviewPage() {
       const nextIdx = stepRef.current + 1;
       setStep(nextIdx);
       stepRef.current = nextIdx;
-      if (voiceModeRef.current) setTimeout(() => askAndListen(nextIdx), 350);
+      if (voiceModeRef.current) setTimeout(() => askAndListen(nextIdx), 150);
     } else {
       void submitSpec(next);
     }
