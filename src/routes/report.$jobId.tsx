@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Trophy, ShieldCheck, ShieldAlert, ChevronDown, Loader2, TrendingDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getVertical } from "@/lib/registry";
