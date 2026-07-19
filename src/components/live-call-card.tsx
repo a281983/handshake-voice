@@ -31,6 +31,7 @@ type LiveCallCardProps = {
     persona: SimResult["persona"];
     caller_voice_id: string;
   }) => void;
+  onFail: () => void;
 };
 
 export function LiveCallCard(props: LiveCallCardProps) {
@@ -49,9 +50,9 @@ function LiveCallCardInner(props: LiveCallCardProps) {
     jobId: props.jobId,
     dealerId: props.counterparty.id,
     round: props.round,
-    onDone: (quote) => {
+    onDone: (quote, liveTranscript) => {
       // Convert live transcript speakers into the pipeline's shape.
-      const turns = call.transcript.map((t) => ({
+      const turns = liveTranscript.map((t) => ({
         speaker: (t.speaker === "negotiator" ? "caller" : "counterparty") as "caller" | "counterparty",
         text: t.text,
       }));
@@ -75,6 +76,10 @@ function LiveCallCardInner(props: LiveCallCardProps) {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [call.transcript.length]);
+
+  useEffect(() => {
+    if (call.state === "error") props.onFail();
+  }, [call.state, props]);
 
   return (
     <div className="rounded-2xl border border-primary/60 glow-ring p-4 bg-surface">
