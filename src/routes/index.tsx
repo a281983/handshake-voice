@@ -28,22 +28,22 @@ function LandingPage() {
     <main className="min-h-dvh grid-bg">
       <div className="mx-auto max-w-md px-5 pt-10 pb-16 sm:max-w-3xl">
         {/* Header */}
-        <header className="flex items-center justify-between">
+        <header className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-primary/15 border border-primary/30 grid place-items-center">
               <Icons.Handshake className="h-4 w-4 text-primary" />
             </div>
             <span className="font-semibold tracking-tight">Handshake</span>
           </div>
-          <span className="text-[11px] text-muted-foreground font-mono">calls · negotiates · reports</span>
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-[11px] text-muted-foreground text-right max-w-[70%]">
+            <span className="pulse-dot shrink-0" />
+            <span>Voice agent that makes the calls and finds the best deal for you</span>
+          </div>
         </header>
 
         {/* Hero */}
-        <section className="mt-14 sm:mt-20">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-[11px] text-muted-foreground">
-            <span className="pulse-dot" /> Voice agent that makes the calls and finds the best deal for you
-          </div>
-          <h1 className="mt-5 text-4xl sm:text-5xl font-semibold tracking-tight leading-[1.05]">
+        <section className="mt-24 sm:mt-32">
+          <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight leading-[1.05]">
             Stop overpaying.
             <br />
             <span className="text-primary">Get the best deal.</span>
