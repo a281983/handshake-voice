@@ -238,6 +238,14 @@ export function usePipeline(jobId: string) {
         `I found ${disc.counterparties.length} ${disc.labels.counterparty_plural} nearby. These are the ones I'm going to call for quotes.`,
       );
 
+      // 1b. Provision live ElevenLabs Convai agents (idempotent).
+      try {
+        await provision({ data: { jobId } });
+      } catch (e) {
+        // Non-fatal — LiveCallCard will surface its own error if the mic/agent fails.
+        console.warn("provisionAgents failed", e);
+      }
+
       // 2. Quote round — our agent calls each counterparty for a quote.
       setPhase("quoting");
       await setStage({ data: { jobId, stage: "quote_round" } });
