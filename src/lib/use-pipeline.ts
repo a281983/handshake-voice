@@ -58,7 +58,40 @@ export function usePipeline(jobId: string) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [views, setViews] = useState<Record<string, CallView>>({});
   const [labels, setLabels] = useState<{ bottom_line: string; counterparty_plural: string } | null>(null);
+  const [narration, setNarration] = useState<string | null>(null);
+  const [awaitingContinue, setAwaitingContinue] = useState(false);
+  const continueRef = useRef<(() => void) | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Browser TTS narrator between phases (uses default voice, no ElevenLabs cost).
+  const narrate = (text: string): Promise<void> =>
+    new Promise((resolve) => {
+      setNarration(text);
+      if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+        setTimeout(resolve, 1200);
+        return;
+      }
+      try {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1.05;
+        u.onend = () => resolve();
+        u.onerror = () => resolve();
+        window.speechSynthesis.speak(u);
+      } catch { resolve(); }
+    });
+
+  const waitForContinue = () =>
+    new Promise<void>((resolve) => {
+      setAwaitingContinue(true);
+      continueRef.current = () => {
+        setAwaitingContinue(false);
+        continueRef.current = null;
+        resolve();
+      };
+    });
+
+  const continueNow = () => continueRef.current?.();
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const running = useRef(false);
