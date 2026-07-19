@@ -135,26 +135,6 @@ function LandingPage() {
           </div>
         </section>
 
-        {/* Demo fast-path */}
-        <section className="mt-6">
-          <button
-            onClick={startDemo}
-            disabled={busy}
-            className="w-full rounded-2xl border border-primary/30 bg-primary/5 p-4 text-left hover:bg-primary/10 transition disabled:opacity-50"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 text-primary text-[11px] font-mono uppercase tracking-wider">
-                  <Icons.Zap className="h-3.5 w-3.5" /> Demo fast-path
-                </div>
-                <p className="mt-1.5 text-sm">Skip the interview — run a 2022 Honda CR-V.</p>
-              </div>
-              <div className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shrink-0">
-                {busy ? "…" : "Run"}
-              </div>
-            </div>
-          </button>
-        </section>
 
         <footer className="mt-14 text-[11px] text-muted-foreground/60 border-t border-border pt-5">
           16,851 tiny dealers will never adopt quoting software. Every one answers the phone.
