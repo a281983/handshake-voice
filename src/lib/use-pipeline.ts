@@ -138,6 +138,7 @@ export function usePipeline(jobId: string) {
     r: 1 | 2,
     id: string,
     index: number,
+    isCaller: boolean,
   ) =>
     new Promise<void>((resolve) => {
       const a = new Audio(src);
@@ -146,7 +147,8 @@ export function usePipeline(jobId: string) {
 
       let raf = 0;
       let startedAt = 0;
-      let totalMs = Math.max(600, text.length * 42); // fallback estimate
+      let totalMs = Math.max(600, text.length * 42);
+      let didFallback = false;
 
       const tick = () => {
         const t = Math.min(1, (performance.now() - startedAt) / totalMs);
@@ -161,17 +163,27 @@ export function usePipeline(jobId: string) {
         resolve();
       };
 
+      // If the <audio> element can't play (autoplay blocked, decode error,
+      // 0-duration), fall back to browser speech so the turn is always heard.
+      const fallback = () => {
+        if (didFallback) return;
+        didFallback = true;
+        cancelAnimationFrame(raf);
+        speakAndType(text, r, id, index, isCaller).then(resolve);
+      };
+
       a.onloadedmetadata = () => {
         if (isFinite(a.duration) && a.duration > 0) {
           totalMs = (a.duration / a.playbackRate) * 1000;
         }
       };
       a.onended = finish;
-      a.onerror = finish;
+      a.onerror = fallback;
       startedAt = performance.now();
       raf = requestAnimationFrame(tick);
-      a.play().catch(finish);
+      a.play().catch(fallback);
     });
+
 
   /** Browser-TTS fallback: still type in sync with the utterance. */
   const speakAndType = (text: string, r: 1 | 2, id: string, index: number, isCaller: boolean) =>
@@ -243,7 +255,7 @@ export function usePipeline(jobId: string) {
             const voiceId = turn.speaker === "caller" ? callerVoice : counterVoice;
             const s = await synth({ data: { text: turn.text, voiceId } });
             if (s.audioBase64) {
-              await playAndType(`data:${s.mime};base64,${s.audioBase64}`, turn.text, r, id, i);
+              await playAndType(`data:${s.mime};base64,${s.audioBase64}`, turn.text, r, id, i, turn.speaker === "caller");
             } else {
               await speakAndType(turn.text, r, id, i, turn.speaker === "caller");
             }
@@ -311,9 +323,12 @@ export function usePipeline(jobId: string) {
       // 2. Quote round — our agent calls each counterparty for a quote.
       setPhase("quoting");
       await setStage({ data: { jobId, stage: "quote_round" } });
-      await narrate(`Getting quotes now, ${clientName}. I'm calling ${disc.counterparties[0]?.name ?? "the first dealer"} first — the others are on the line in parallel.`);
+      const firstQuoteDealer = disc.counterparties[0]?.name ?? "the first dealer";
+      await narrate(`Getting quotes now, ${clientName}. I'm calling ${firstQuoteDealer} first — the others are on the line in parallel.`);
+      await narrate(`Listen in — Laura, my calling agent, is on the line with ${firstQuoteDealer} right now.`);
       await runRound(1, disc.counterparties);
       setNarration(null);
+
 
       // Read back a summary of ALL three quotes and pick the negotiation target.
       const quoteSummary = disc.counterparties.map((c) => {
@@ -347,10 +362,12 @@ export function usePipeline(jobId: string) {
         ? disc.counterparties.find((c) => c.id === cheapest.id) ?? disc.counterparties[0]
         : disc.counterparties[0];
       const negoTarget = negoDealer?.name ?? "the top dealer";
-      await narrate(`Calling ${negoTarget} back to negotiate for you, ${clientName}.`);
+      await narrate(`Calling ${negoTarget} back to negotiate for you, ${clientName}. Listen in — Laura's going to squeeze every fee she can.`);
       await runRound(2, [negoDealer]);
+      await narrate(`Negotiation wrapped, ${clientName}. Locking in the numbers and putting your final recommendation together now.`);
 
       setNarration(null);
+
 
       // 5. Eval + report — no artificial waits.
       setPhase("finalizing");
