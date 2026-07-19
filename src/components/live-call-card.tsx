@@ -5,6 +5,7 @@
 
 import { useEffect, useRef } from "react";
 import { User, Store, Volume2, Phone } from "lucide-react";
+import { ConversationProvider } from "@elevenlabs/react";
 import { useLiveCall } from "@/lib/use-live-call";
 import type { CounterpartyMeta, SimResult, SimQuote } from "@/lib/use-pipeline";
 
@@ -19,7 +20,7 @@ function personaFromMeta(c: CounterpartyMeta): SimResult["persona"] {
   };
 }
 
-export function LiveCallCard(props: {
+type LiveCallCardProps = {
   jobId: string;
   round: 1 | 2;
   counterparty: CounterpartyMeta;
@@ -30,7 +31,17 @@ export function LiveCallCard(props: {
     persona: SimResult["persona"];
     caller_voice_id: string;
   }) => void;
-}) {
+};
+
+export function LiveCallCard(props: LiveCallCardProps) {
+  return (
+    <ConversationProvider>
+      <LiveCallCardInner {...props} />
+    </ConversationProvider>
+  );
+}
+
+function LiveCallCardInner(props: LiveCallCardProps) {
   const startedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
