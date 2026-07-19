@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
-import { Loader2, Volume2, User, Store, Search, Handshake, Scale, ClipboardCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Loader2, Volume2, User, Store, Search, Handshake, Scale, ClipboardCheck, Phone, ChevronDown, ChevronUp } from "lucide-react";
 import { usePipeline, type Phase } from "@/lib/use-pipeline";
 
 export const Route = createFileRoute("/simulate/$jobId")({
