@@ -442,34 +442,38 @@ export const simulateCall = createServerFn({ method: "POST" })
       leverage = leverageBrief(cfg, packet);
     }
 
-    // REAL ElevenLabs agent-to-agent call first; fall back to LLM sim if unavailable.
+    // Default to the FAST LLM path (Gemini flash, ~2-4s) so the UI can start
+    // "live" typing quickly. The ElevenLabs agent-to-agent simulate-conversation
+    // path is genuinely slower (~20-40s per call) and was killing the live feel;
+    // opt in only via USE_ELEVENLABS_AGENT_SIM=1.
+    const useAgentSim = process.env.USE_ELEVENLABS_AGENT_SIM === "1";
     let turns: Turn[];
     let quote: SimQuote;
     let from_cache = false;
     try {
-      const agentId = await ensureDealerAgent(supabaseAdmin, job.vertical, cfg, persona);
-      if (agentId) {
-        turns = await runAgentSimulation({ agentId, cfg, persona, spec, round: data.round, leverage });
-        if (!turns.length) throw new Error("empty transcript from ElevenLabs agent");
-        quote = await extractQuoteFromTranscript(cfg, turns);
+      if (useAgentSim) {
+        const agentId = await ensureDealerAgent(supabaseAdmin, job.vertical, cfg, persona);
+        if (agentId) {
+          turns = await runAgentSimulation({ agentId, cfg, persona, spec, round: data.round, leverage });
+          if (!turns.length) throw new Error("empty transcript from ElevenLabs agent");
+          quote = await extractQuoteFromTranscript(cfg, turns);
+        } else {
+          const out = await generateCall({ cfg, persona, spec, round: data.round, leverage });
+          turns = out.turns;
+          quote = out.quote;
+        }
       } else {
         const out = await generateCall({ cfg, persona, spec, round: data.round, leverage });
         turns = out.turns;
         quote = out.quote;
       }
     } catch (err) {
-      console.error("real-agent path failed, falling back to LLM sim:", err);
-      try {
-        const out = await generateCall({ cfg, persona, spec, round: data.round, leverage });
-        turns = out.turns;
-        quote = out.quote;
-      } catch (err2) {
-        const cached = await loadCached(supabaseAdmin, data.jobId, data.dealerId, data.round);
-        if (!cached) throw err2;
-        turns = cached.turns;
-        quote = cached.quote;
-        from_cache = true;
-      }
+      console.error("primary sim path failed, trying cached replay:", err);
+      const cached = await loadCached(supabaseAdmin, data.jobId, data.dealerId, data.round);
+      if (!cached) throw err;
+      turns = cached.turns;
+      quote = cached.quote;
+      from_cache = true;
     }
     // Enforce round-specific hard cap on turn count.
     const simCfg = cfg.simulation;
