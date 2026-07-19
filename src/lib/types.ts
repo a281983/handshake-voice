@@ -114,6 +114,11 @@ export type VerticalConfig = {
     min_turns: number;
     max_turns: number;
     model: string;
+    /** Per-round overrides. Round 2 defaults shorter so negotiation stays punchy. */
+    round1_min_turns?: number;
+    round1_max_turns?: number;
+    round2_min_turns?: number;
+    round2_max_turns?: number;
   };
 };
 
