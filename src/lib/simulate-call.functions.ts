@@ -333,7 +333,7 @@ export const synthesizeTurn = createServerFn({ method: "POST" })
   .inputValidator((i: { text: string; voiceId: string }) => i)
   .handler(async ({ data }) => {
     const apiKey = process.env.ELEVENLABS_API_KEY;
-    if (!apiKey) throw new Error("ELEVENLABS_API_KEY missing");
+    if (!apiKey) return { audioBase64: null, mime: "audio/mpeg", skipped: "no_api_key" as const };
     const res = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${data.voiceId}?output_format=mp3_44100_128`,
       {
