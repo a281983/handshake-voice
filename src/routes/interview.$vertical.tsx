@@ -136,13 +136,27 @@ function InterviewPage() {
           ))}
         </div>
 
-        {/* Voice orb (decorative + live-SDK mount point) */}
+        {/* Voice orb — tap to dictate */}
         <div className="mt-8 flex justify-center">
-          <div className="relative h-24 w-24 rounded-full bg-primary/10 border border-primary/30 grid place-items-center glow-ring">
-            <Mic className="h-8 w-8 text-primary" />
-            <span className="absolute inset-0 rounded-full border border-primary/20 animate-ping" />
-          </div>
+          <button
+            type="button"
+            onClick={listening ? stopListening : startListening}
+            aria-label={listening ? "Stop listening" : "Start voice input"}
+            className={`relative h-24 w-24 rounded-full grid place-items-center glow-ring transition ${
+              listening
+                ? "bg-primary text-primary-foreground border border-primary"
+                : "bg-primary/10 border border-primary/30 hover:bg-primary/20"
+            }`}
+          >
+            {listening ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8 text-primary" />}
+            {listening && (
+              <span className="absolute inset-0 rounded-full border border-primary/40 animate-ping" />
+            )}
+          </button>
         </div>
+        {micError && (
+          <p className="mt-3 text-xs text-destructive text-center">{micError}</p>
+        )}
 
         {/* Current question */}
         <h1 className="mt-8 text-2xl font-semibold text-center leading-tight">
