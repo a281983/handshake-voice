@@ -5,6 +5,7 @@
 
 import { useEffect, useRef } from "react";
 import { User, Store, Volume2, Phone } from "lucide-react";
+import { ConversationProvider } from "@elevenlabs/react";
 import { useLiveCall } from "@/lib/use-live-call";
 import type { CounterpartyMeta, SimResult, SimQuote } from "@/lib/use-pipeline";
 
