@@ -138,6 +138,7 @@ export function usePipeline(jobId: string) {
     r: 1 | 2,
     id: string,
     index: number,
+    isCaller: boolean,
   ) =>
     new Promise<void>((resolve) => {
       const a = new Audio(src);
@@ -146,7 +147,8 @@ export function usePipeline(jobId: string) {
 
       let raf = 0;
       let startedAt = 0;
-      let totalMs = Math.max(600, text.length * 42); // fallback estimate
+      let totalMs = Math.max(600, text.length * 42);
+      let didFallback = false;
 
       const tick = () => {
         const t = Math.min(1, (performance.now() - startedAt) / totalMs);
@@ -161,17 +163,27 @@ export function usePipeline(jobId: string) {
         resolve();
       };
 
+      // If the <audio> element can't play (autoplay blocked, decode error,
+      // 0-duration), fall back to browser speech so the turn is always heard.
+      const fallback = () => {
+        if (didFallback) return;
+        didFallback = true;
+        cancelAnimationFrame(raf);
+        speakAndType(text, r, id, index, isCaller).then(resolve);
+      };
+
       a.onloadedmetadata = () => {
         if (isFinite(a.duration) && a.duration > 0) {
           totalMs = (a.duration / a.playbackRate) * 1000;
         }
       };
       a.onended = finish;
-      a.onerror = finish;
+      a.onerror = fallback;
       startedAt = performance.now();
       raf = requestAnimationFrame(tick);
-      a.play().catch(finish);
+      a.play().catch(fallback);
     });
+
 
   /** Browser-TTS fallback: still type in sync with the utterance. */
   const speakAndType = (text: string, r: 1 | 2, id: string, index: number, isCaller: boolean) =>
