@@ -1,24 +1,165 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import * as Icons from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { listVerticals, getVertical } from "@/lib/registry";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
-  component: Index,
+  component: LandingPage,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
+function LandingPage() {
+  const navigate = useNavigate();
+  const [ask, setAsk] = useState("");
+  const [busy, setBusy] = useState(false);
+  const verticals = listVerticals();
+
+  // Route a free-form "ask anything" request to the best-matching vertical.
+  const routeAsk = () => {
+    const t = ask.toLowerCase();
+    const match =
+      verticals.find((v) =>
+        [v.id, v.display_name, v.labels.counterparty, ...v.spec_schema.map((s) => s.label)]
+          .some((w) => t.includes(w.toLowerCase().split(" ")[0])),
+      ) ?? verticals.find((v) => v.demo_ready)!;
+    navigate({ to: "/interview/$vertical", params: { vertical: match.id } });
+  };
+
+  const startDemo = async () => {
+    setBusy(true);
+    const cfg = getVertical("car_buying");
+    const spec = { vertical: cfg.id, fields: cfg.interview.demo_spec };
+    const { data, error } = await supabase
+      .from("jobs")
+      .insert({ vertical: cfg.id, job_spec: spec, stage: "intake" })
+      .select("id")
+      .single();
+    if (error || !data) {
+      setBusy(false);
+      return;
+    }
+    navigate({ to: "/confirm/$jobId", params: { jobId: data.id } });
+  };
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <main className="min-h-dvh grid-bg">
+      <div className="mx-auto max-w-md px-5 pt-10 pb-16 sm:max-w-3xl">
+        {/* Header */}
+        <header className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-primary/15 border border-primary/30 grid place-items-center">
+              <Icons.Handshake className="h-4 w-4 text-primary" />
+            </div>
+            <span className="font-semibold tracking-tight">Handshake</span>
+          </div>
+          <span className="text-[11px] text-muted-foreground font-mono">calls · negotiates · reports</span>
+        </header>
+
+        {/* Hero */}
+        <section className="mt-14 sm:mt-20">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-[11px] text-muted-foreground">
+            <span className="pulse-dot" /> Voice agent that makes the calls for you
+          </div>
+          <h1 className="mt-5 text-4xl sm:text-5xl font-semibold tracking-tight leading-[1.05]">
+            Stop overpaying.
+            <br />
+            <span className="text-primary">Make them compete.</span>
+          </h1>
+          <p className="mt-4 text-base text-muted-foreground max-w-lg">
+            Tell it what you want. It calls three sellers, gets itemized prices, then
+            calls back and plays them against each other — while you watch it happen.
+          </p>
+        </section>
+
+        {/* Ask anything */}
+        <section className="mt-8">
+          <div className="flex items-center gap-2 rounded-2xl border border-border bg-surface p-2 focus-within:border-primary/50 transition">
+            <Icons.Sparkles className="ml-2 h-4 w-4 text-primary shrink-0" />
+            <input
+              value={ask}
+              onChange={(e) => setAsk(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && ask.trim() && routeAsk()}
+              placeholder="Ask anything — “help me buy a used CR-V under 40k”"
+              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/70 py-2"
+            />
+            <button
+              onClick={() => ask.trim() && routeAsk()}
+              className="rounded-xl bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 shrink-0"
+            >
+              <Icons.ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </section>
+
+        {/* Category cards */}
+        <section className="mt-6">
+          <p className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
+            Or pick a category
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {verticals.map((v) => {
+              const Icon = (Icons as Record<string, any>)[v.icon] ?? Icons.Circle;
+              return (
+                <button
+                  key={v.id}
+                  disabled={!v.demo_ready}
+                  onClick={() =>
+                    navigate({ to: "/interview/$vertical", params: { vertical: v.id } })
+                  }
+                  className={`group relative text-left rounded-2xl border p-4 transition ${
+                    v.demo_ready
+                      ? "border-border bg-surface hover:border-primary/50 hover:bg-surface-2"
+                      : "border-border/60 bg-surface/50 opacity-70"
+                  }`}
+                >
+                  <div className="h-10 w-10 rounded-xl bg-primary/15 border border-primary/30 grid place-items-center">
+                    <Icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="mt-3 text-sm font-semibold leading-snug">{v.display_name}</h3>
+                  <p className="mt-1 text-[12px] text-muted-foreground leading-snug line-clamp-2">
+                    {v.tagline}
+                  </p>
+                  {!v.demo_ready && (
+                    <span className="absolute top-3 right-3 text-[9px] font-mono uppercase tracking-wide text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                      soon
+                    </span>
+                  )}
+                  {v.demo_ready && (
+                    <span className="absolute top-3 right-3 text-[9px] font-mono uppercase tracking-wide text-primary/90">
+                      ready
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Demo fast-path */}
+        <section className="mt-6">
+          <button
+            onClick={startDemo}
+            disabled={busy}
+            className="w-full rounded-2xl border border-primary/30 bg-primary/5 p-4 text-left hover:bg-primary/10 transition disabled:opacity-50"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-primary text-[11px] font-mono uppercase tracking-wider">
+                  <Icons.Zap className="h-3.5 w-3.5" /> Demo fast-path
+                </div>
+                <p className="mt-1.5 text-sm">Skip the interview — run a 2022 Honda CR-V.</p>
+              </div>
+              <div className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shrink-0">
+                {busy ? "…" : "Run"}
+              </div>
+            </div>
+          </button>
+        </section>
+
+        <footer className="mt-14 text-[11px] text-muted-foreground/60 border-t border-border pt-5">
+          16,851 tiny dealers will never adopt quoting software. Every one answers the phone.
+        </footer>
+      </div>
+    </main>
   );
 }

@@ -1,0 +1,109 @@
+{
+  "id": "car_buying",
+  "display_name": "Buy a car",
+  "tagline": "Get dealers to fight over you — and stop paying for junk fees.",
+  "icon": "Car",
+  "demo_ready": true,
+
+  "labels": {
+    "counterparty": "dealer",
+    "counterparty_plural": "dealers",
+    "bottom_line": "out-the-door price",
+    "verb": "buy",
+    "quote_noun": "quote"
+  },
+
+  "spec_schema": [
+    { "id": "make",        "label": "Make",        "type": "string",      "demo_critical": true,  "placeholder": "Honda" },
+    { "id": "model",       "label": "Model",       "type": "string",      "demo_critical": true,  "placeholder": "CR-V" },
+    { "id": "year",        "label": "Year",        "type": "string",      "demo_critical": true,  "placeholder": "2022" },
+    { "id": "condition",   "label": "Condition",   "type": "string",      "demo_critical": true,  "default": "used" },
+    { "id": "payment_method", "label": "Payment",  "type": "string",      "demo_critical": true,  "default": "finance" },
+    { "id": "zip",         "label": "ZIP",         "type": "string",      "demo_critical": false, "default": "02139" },
+    { "id": "trim",        "label": "Trim",        "type": "string",      "demo_critical": false, "default": "EX" },
+    { "id": "mileage_max", "label": "Max mileage", "type": "number",      "demo_critical": false, "default": 40000 },
+    { "id": "drivetrain",  "label": "Drivetrain",  "type": "string",      "demo_critical": false, "default": "AWD" },
+    { "id": "must_have_features", "label": "Must-haves", "type": "string_list", "demo_critical": false, "default": ["Apple CarPlay", "backup camera"] },
+    { "id": "color_prefs", "label": "Colors",      "type": "string_list", "demo_critical": false, "default": ["grey", "black"] },
+    { "id": "radius_miles","label": "Radius (mi)", "type": "number",      "demo_critical": false, "default": 30 },
+    { "id": "timeline",    "label": "Timeline",    "type": "string",      "demo_critical": false, "default": "within 3 weeks" }
+  ],
+
+  "interview": {
+    "first_message": "Hey — what car are you after?",
+    "questions": [
+      { "field": "make",           "ask": "What make and model?" },
+      { "field": "year",           "ask": "What year?" },
+      { "field": "condition",      "ask": "New or used?" },
+      { "field": "payment_method", "ask": "Cash or finance?" }
+    ],
+    "demo_spec": {
+      "make": "Honda", "model": "CR-V", "year": 2022, "trim": "EX",
+      "condition": "used", "mileage_max": 40000, "drivetrain": "AWD",
+      "must_have_features": ["Apple CarPlay", "backup camera"],
+      "color_prefs": ["grey", "black"], "payment_method": "finance",
+      "zip": "02139", "radius_miles": 30, "timeline": "within 3 weeks"
+    }
+  },
+
+  "benchmark": {
+    "description": "Fair-market out-the-door for a 2022 Honda CR-V EX AWD ~35k mi",
+    "fair_bottom_line": 30000,
+    "source": "KBB / market range (demo anchor)"
+  },
+
+  "red_flag_rule": {
+    "type": "below_market_pct",
+    "threshold_pct": 30,
+    "message": "Quote >30% below market — likely a lowball hiding fees, not a win."
+  },
+
+  "discovery": {
+    "provider": "tavily",
+    "query_template": "used car dealerships near {zip} selling {year} {make} {model}",
+    "select_count": 3
+  },
+
+  "demo_mode": {
+    "enabled": true,
+    "note": "In production these calls dial the scraped dealer numbers. In the demo they route to verified role-player phones."
+  },
+
+  "personas": [
+    {
+      "id": "summit",
+      "name": "Summit Auto Group",
+      "style": "stonewaller",
+      "voice_id": "onwK4e9ZLuTAKqWW03F9",
+      "opening_bottom_line": 32500,
+      "negotiation_floor": 31200,
+      "prompt": "You are Marcus, a gruff, busy sales manager at Summit Auto Group. STYLE: stonewaller. You hate giving numbers over the phone and keep steering the caller to 'come in and see it in person.' You're reluctant to itemize fees. You always have the car in stock. Your opening out-the-door anchor is $32,500. Fees when pressed: doc fee $799, plus a 'market adjustment' of $1,000 that you describe as totally normal. Financing APR 6.9%. You multitask and can be a little short. GUARDRAIL: even under heavy pressure with a real competing written offer, you will not go below $31,200, and only then if they finance with you. Never volunteer your floor."
+    },
+    {
+      "id": "valuemax",
+      "name": "ValueMax Motors",
+      "style": "lowball_hidden_fees",
+      "voice_id": "TxGEqnHWrfWFTfGW9XjX",
+      "opening_bottom_line": 30800,
+      "negotiation_floor": 29200,
+      "prompt": "You are Ricky, a super-friendly, fast-talking salesman at ValueMax Motors. STYLE: lowball with hidden fees. You LEAD with a shiny vehicle price of $27,500 ('killer price!') to hook the buyer, then only reveal fees when the caller itemizes: doc fee $999, dealer prep $695, nitrogen-filled tires $299, paint protection $899, VIN etching $399. Real out-the-door lands around $30,800. You call all of it 'pretty standard, everybody charges it.' GUARDRAIL: under pressure with a real competing offer you'll drop the soft add-ons (paint protection, nitrogen, VIN etching) but you will not go below $29,200 out the door. Deliver concessions like a favor: 'okay okay, for you...' Never volunteer your floor."
+    },
+    {
+      "id": "premier",
+      "name": "Premier Motors",
+      "style": "hard_sell_upsell",
+      "voice_id": "VR6AewLTigWG4xSOukaG",
+      "opening_bottom_line": 33000,
+      "negotiation_floor": 31800,
+      "prompt": "You are Dana, a polished, relentless closer at Premier Motors. STYLE: hard-sell upsell. You anchor high at $33,000 out-the-door and immediately pivot to add-ons: extended warranty $2,400, GAP $900, paint protection $1,200. You itemize base fees willingly (doc $599, prep $495) but keep pushing add-ons and try to reframe everything as a monthly payment to hide the out-the-door. You add urgency: 'this price is really just for today.' GUARDRAIL: when leveraged with a real competing offer, drop the vehicle price so out-the-door reaches no lower than $31,800, and drop the 'today only' pretense when called out. Keep trying to slip the warranty back in. Never volunteer your floor."
+    }
+  ],
+
+  "caller_voice_id": "cgSgspJ2msm6clMCkdW9",
+
+  "simulation": {
+    "min_turns": 8,
+    "max_turns": 12,
+    "model": "gpt-4o-mini"
+  }
+}

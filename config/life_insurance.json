@@ -1,0 +1,99 @@
+{
+  "id": "life_insurance",
+  "display_name": "Buy life insurance",
+  "tagline": "Same policy, wildly different prices. Let three carriers undercut each other.",
+  "icon": "Shield",
+  "demo_ready": false,
+
+  "labels": {
+    "counterparty": "carrier",
+    "counterparty_plural": "carriers",
+    "bottom_line": "annual premium",
+    "verb": "insure",
+    "quote_noun": "quote"
+  },
+
+  "spec_schema": [
+    { "id": "coverage",   "label": "Coverage amount", "type": "number", "demo_critical": true,  "placeholder": "1000000" },
+    { "id": "term",       "label": "Term length",     "type": "string", "demo_critical": true,  "placeholder": "20-year" },
+    { "id": "age",        "label": "Age",             "type": "number", "demo_critical": true,  "placeholder": "35" },
+    { "id": "tobacco",    "label": "Tobacco use?",    "type": "string", "demo_critical": true,  "default": "no" },
+    { "id": "health",     "label": "Health class",    "type": "string", "demo_critical": false, "default": "preferred plus" },
+    { "id": "zip",        "label": "ZIP",             "type": "string", "demo_critical": false, "default": "02139" }
+  ],
+
+  "interview": {
+    "first_message": "How much coverage do you want?",
+    "questions": [
+      { "field": "coverage", "ask": "What coverage amount?" },
+      { "field": "term",     "ask": "What term — 10, 20, 30 years?" },
+      { "field": "age",      "ask": "How old are you?" },
+      { "field": "tobacco",  "ask": "Any tobacco use?" }
+    ],
+    "demo_spec": {
+      "coverage": 1000000, "term": "20-year", "age": 35, "tobacco": "no",
+      "health": "preferred plus", "zip": "02139"
+    }
+  },
+
+  "benchmark": {
+    "description": "Fair annual premium: $1M 20-year term, age 35, preferred-plus nonsmoker",
+    "fair_bottom_line": 520,
+    "source": "Policygenius / market range (demo anchor)"
+  },
+
+  "red_flag_rule": {
+    "type": "below_market_pct",
+    "threshold_pct": 30,
+    "message": "Premium far below market — check the health class quoted and whether it's a real bindable rate, not a teaser."
+  },
+
+  "discovery": {
+    "provider": "tavily",
+    "query_template": "term life insurance {term} {coverage} quotes {zip}",
+    "select_count": 3
+  },
+
+  "demo_mode": {
+    "enabled": true,
+    "note": "In production these dial scraped agency/carrier numbers. In the demo they route to role-players."
+  },
+
+  "personas": [
+    {
+      "id": "national_carrier",
+      "name": "Northwind Mutual",
+      "style": "brand_premium",
+      "voice_id": "onwK4e9ZLuTAKqWW03F9",
+      "opening_bottom_line": 640,
+      "negotiation_floor": 560,
+      "prompt": "You are an agent at Northwind Mutual. STYLE: brand-name premium. You quote higher ($640/yr) and sell financial strength and riders. GUARDRAIL: with a competing bindable quote you can improve to no lower than $560/yr, often by re-shopping the health class. Never volunteer your floor."
+    },
+    {
+      "id": "discount_broker",
+      "name": "QuoteHub Brokerage",
+      "style": "aggressive_low",
+      "voice_id": "TxGEqnHWrfWFTfGW9XjX",
+      "opening_bottom_line": 540,
+      "negotiation_floor": 470,
+      "prompt": "You are a broker at QuoteHub. STYLE: aggressive low quotes across many carriers. You lead with the cheapest number but it may assume a health class the client hasn't qualified for. GUARDRAIL: you can shop down to no lower than $470/yr for a qualified applicant. Never volunteer your floor."
+    },
+    {
+      "id": "captive_agent",
+      "name": "Allstate-style Captive",
+      "style": "bundler",
+      "voice_id": "VR6AewLTigWG4xSOukaG",
+      "opening_bottom_line": 600,
+      "negotiation_floor": 500,
+      "prompt": "You are a captive agent. STYLE: bundler — you push multi-policy discounts (auto + home + life). You quote $600 standalone but dangle bundle savings. GUARDRAIL: with a competing quote you can reach no lower than $500/yr, best if bundled. Never volunteer your floor."
+    }
+  ],
+
+  "caller_voice_id": "cgSgspJ2msm6clMCkdW9",
+
+  "simulation": {
+    "min_turns": 8,
+    "max_turns": 12,
+    "model": "gpt-4o-mini"
+  }
+}

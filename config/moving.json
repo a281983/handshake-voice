@@ -1,0 +1,101 @@
+{
+  "id": "moving",
+  "display_name": "Book a mover",
+  "tagline": "Movers pad every estimate. Get three real quotes and squeeze them.",
+  "icon": "Truck",
+  "demo_ready": false,
+
+  "labels": {
+    "counterparty": "moving company",
+    "counterparty_plural": "moving companies",
+    "bottom_line": "total move cost",
+    "verb": "book",
+    "quote_noun": "estimate"
+  },
+
+  "spec_schema": [
+    { "id": "from_zip",   "label": "Moving from",   "type": "string", "demo_critical": true,  "placeholder": "02139" },
+    { "id": "to_zip",     "label": "Moving to",     "type": "string", "demo_critical": true,  "placeholder": "10001" },
+    { "id": "home_size",  "label": "Home size",     "type": "string", "demo_critical": true,  "placeholder": "2-bedroom" },
+    { "id": "move_date",  "label": "Move date",     "type": "string", "demo_critical": true,  "default": "in 3 weeks" },
+    { "id": "packing",    "label": "Need packing?", "type": "boolean","demo_critical": false, "default": true },
+    { "id": "stairs",     "label": "Stairs/elevator","type": "string","demo_critical": false, "default": "2nd floor walkup both ends" },
+    { "id": "heavy_items","label": "Heavy items",   "type": "string_list", "demo_critical": false, "default": ["piano"] }
+  ],
+
+  "interview": {
+    "first_message": "Where are you moving, and when?",
+    "questions": [
+      { "field": "from_zip",  "ask": "Moving from what ZIP?" },
+      { "field": "to_zip",    "ask": "Moving to where?" },
+      { "field": "home_size", "ask": "How big — studio, one-bed, more?" },
+      { "field": "move_date", "ask": "What date?" }
+    ],
+    "demo_spec": {
+      "from_zip": "02139", "to_zip": "10001", "home_size": "2-bedroom",
+      "move_date": "in 3 weeks", "packing": true,
+      "stairs": "2nd floor walkup both ends", "heavy_items": ["piano"]
+    }
+  },
+
+  "benchmark": {
+    "description": "Fair market for a 2-bed local-to-NYC move with packing",
+    "fair_bottom_line": 3800,
+    "source": "moving.com average range (demo anchor)"
+  },
+
+  "red_flag_rule": {
+    "type": "below_market_pct",
+    "threshold_pct": 30,
+    "message": "Estimate far below market — classic bait quote that balloons on moving day. Get it binding in writing."
+  },
+
+  "discovery": {
+    "provider": "tavily",
+    "query_template": "licensed moving companies near {from_zip} long distance quote",
+    "select_count": 3
+  },
+
+  "demo_mode": {
+    "enabled": true,
+    "note": "In production these dial the scraped mover numbers. In the demo they route to role-players."
+  },
+
+  "personas": [
+    {
+      "id": "reliable_movers",
+      "name": "Reliable Van Lines",
+      "style": "premium_firm",
+      "voice_id": "onwK4e9ZLuTAKqWW03F9",
+      "opening_bottom_line": 4600,
+      "negotiation_floor": 4000,
+      "prompt": "You are a sales rep at Reliable Van Lines. STYLE: premium and firm. You quote high ($4,600) and justify it with full insurance, background-checked crews, and no surprise fees. You resist discounting and emphasize quality. GUARDRAIL: with a competing binding quote you can come down to no lower than $4,000. Never volunteer your floor."
+    },
+    {
+      "id": "budget_movers",
+      "name": "BudgetMove Express",
+      "style": "lowball_addons",
+      "voice_id": "TxGEqnHWrfWFTfGW9XjX",
+      "opening_bottom_line": 3900,
+      "negotiation_floor": 3200,
+      "prompt": "You are a rep at BudgetMove Express. STYLE: lowball with add-ons. You quote a cheap headline ($2,900 base) then pile on fuel surcharge, stair fee, piano fee, packing materials — real total near $3,900. You call the fees 'industry standard.' GUARDRAIL: under pressure you'll waive fuel and stair fees but not go below $3,200 total. Never volunteer your floor."
+    },
+    {
+      "id": "family_movers",
+      "name": "Family First Moving",
+      "style": "relationship",
+      "voice_id": "VR6AewLTigWG4xSOukaG",
+      "opening_bottom_line": 4200,
+      "negotiation_floor": 3500,
+      "prompt": "You are the owner of Family First Moving. STYLE: warm, relationship-driven. You quote $4,200, talk about your crew like family, and want to earn the booking. You're willing to sharpen your pencil for a good customer. GUARDRAIL: with a real competing quote you can match down to no lower than $3,500. Never volunteer your floor."
+    }
+  ],
+
+  "caller_voice_id": "cgSgspJ2msm6clMCkdW9",
+
+  "simulation": {
+    "min_turns": 8,
+    "max_turns": 12,
+    "model": "gpt-4o-mini"
+  }
+}

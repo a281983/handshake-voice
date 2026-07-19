@@ -1,0 +1,101 @@
+{
+  "id": "medical_bills",
+  "display_name": "Negotiate a medical bill",
+  "tagline": "Hospitals expect you to just pay. Make them justify every line first.",
+  "icon": "Stethoscope",
+  "demo_ready": false,
+
+  "labels": {
+    "counterparty": "billing office",
+    "counterparty_plural": "billing offices",
+    "bottom_line": "total bill",
+    "verb": "negotiate",
+    "quote_noun": "itemized bill"
+  },
+
+  "spec_schema": [
+    { "id": "procedure",     "label": "Procedure / service", "type": "string", "demo_critical": true,  "placeholder": "MRI, lower back" },
+    { "id": "provider",      "label": "Provider / hospital", "type": "string", "demo_critical": true,  "placeholder": "General Hospital" },
+    { "id": "billed_amount", "label": "Amount billed",       "type": "number", "demo_critical": true,  "placeholder": "3200" },
+    { "id": "insured",       "label": "Insured?",            "type": "string", "demo_critical": true,  "default": "yes" },
+    { "id": "date_of_service","label": "Date of service",    "type": "string", "demo_critical": false, "default": "last month" },
+    { "id": "zip",           "label": "ZIP",                 "type": "string", "demo_critical": false, "default": "02139" },
+    { "id": "hardship",      "label": "Financial hardship?", "type": "boolean","demo_critical": false, "default": false }
+  ],
+
+  "interview": {
+    "first_message": "What bill are we fighting?",
+    "questions": [
+      { "field": "procedure",     "ask": "What procedure or service?" },
+      { "field": "provider",      "ask": "Which hospital or provider?" },
+      { "field": "billed_amount", "ask": "How much did they bill?" },
+      { "field": "insured",       "ask": "Insured or self-pay?" }
+    ],
+    "demo_spec": {
+      "procedure": "MRI lumbar spine", "provider": "General Hospital",
+      "billed_amount": 3200, "insured": "yes", "date_of_service": "last month",
+      "zip": "02139", "hardship": false
+    }
+  },
+
+  "benchmark": {
+    "description": "Fair cash/negotiated price for a lumbar MRI",
+    "fair_bottom_line": 900,
+    "source": "Healthcare Bluebook / fair-price range"
+  },
+
+  "red_flag_rule": {
+    "type": "below_market_pct",
+    "threshold_pct": 30,
+    "message": "Offer far below fair price — confirm it's real and covers the same service, not a partial write-off."
+  },
+
+  "discovery": {
+    "provider": "tavily",
+    "query_template": "{provider} patient billing financial assistance phone number {zip}",
+    "select_count": 3
+  },
+
+  "demo_mode": {
+    "enabled": true,
+    "note": "In production these call the provider's billing and patient-advocacy lines. In the demo they route to role-players."
+  },
+
+  "personas": [
+    {
+      "id": "hospital_billing",
+      "name": "Hospital Billing Dept",
+      "style": "by_the_book",
+      "voice_id": "onwK4e9ZLuTAKqWW03F9",
+      "opening_bottom_line": 3200,
+      "negotiation_floor": 1600,
+      "prompt": "You are a hospital billing representative. STYLE: by-the-book. You start by insisting the $3,200 charge is 'the standard rate' and that you 'can't just change it.' You reluctantly mention a self-pay discount and a financial-assistance application only when pushed. GUARDRAIL: with a cited fair-price benchmark and mention of a competing cash rate you can approve a prompt-pay discount down to no lower than $1,600. Never volunteer your floor."
+    },
+    {
+      "id": "third_party_collector",
+      "name": "Third-Party Collections",
+      "style": "aggressive_flexible",
+      "voice_id": "TxGEqnHWrfWFTfGW9XjX",
+      "opening_bottom_line": 3200,
+      "negotiation_floor": 1300,
+      "prompt": "You are a third-party medical collections agent. STYLE: aggressive but ultimately flexible because you bought the debt cheaply. You open firm on the full $3,200 and imply credit consequences. GUARDRAIL: for a same-day lump-sum settlement you can go down to no lower than $1,300. You fold faster than the hospital because anything you collect is profit. Never volunteer your floor."
+    },
+    {
+      "id": "patient_advocate",
+      "name": "Patient Advocacy Line",
+      "style": "cooperative",
+      "voice_id": "VR6AewLTigWG4xSOukaG",
+      "opening_bottom_line": 2800,
+      "negotiation_floor": 1400,
+      "prompt": "You are a hospital patient-advocacy representative. STYLE: cooperative and helpful. You genuinely want to reduce the bill and proactively mention itemization errors, charity care, and prompt-pay discounts. GUARDRAIL: you can approve reductions down to no lower than $1,400 out of pocket. Never volunteer your floor."
+    }
+  ],
+
+  "caller_voice_id": "cgSgspJ2msm6clMCkdW9",
+
+  "simulation": {
+    "min_turns": 8,
+    "max_turns": 12,
+    "model": "gpt-4o-mini"
+  }
+}
