@@ -100,13 +100,31 @@ export const buildReport = createServerFn({ method: "POST" })
     const all = (allRows ?? []).map(toQuote);
     const round1 = all.filter((q) => q.round === 1);
     const round2 = all.filter((q) => q.round === 2);
-    const source = round2.length ? round2 : round1;
 
-    // Rank by real captured bottom line — no hardcoded floors.
+    // Build the ranking from the LATEST quote per dealer: if we negotiated
+    // with them (round 2 exists) use that number; otherwise fall back to their
+    // opening round-1 quote. This guarantees the dealer we actually negotiated
+    // with is scored on their negotiated bottom line — not compared against
+    // other dealers' round-2 numbers that never happened.
+    const latestByDealer = new Map<string, Quote>();
+    for (const q of round1) latestByDealer.set(q.dealer_id, q);
+    for (const q of round2) latestByDealer.set(q.dealer_id, q);
+    const source = Array.from(latestByDealer.values());
+
+    const negotiatedIds = new Set(round2.map((q) => q.dealer_id));
+
     const ranked = source
       .filter((q) => q.outcome !== "no_answer" && q.bottom_line != null)
       .slice()
-      .sort((a, b) => (a.bottom_line ?? Infinity) - (b.bottom_line ?? Infinity))
+      .sort((a, b) => {
+        // Negotiated dealers always rank above un-negotiated openers — we
+        // called them back for a reason, and the report should reflect the
+        // deal we actually closed.
+        const an = negotiatedIds.has(a.dealer_id) ? 0 : 1;
+        const bn = negotiatedIds.has(b.dealer_id) ? 0 : 1;
+        if (an !== bn) return an - bn;
+        return (a.bottom_line ?? Infinity) - (b.bottom_line ?? Infinity);
+      })
       .map((q, i) => ({
         dealer_id: q.dealer_id,
         dealer_name: q.dealer_name,
@@ -116,6 +134,7 @@ export const buildReport = createServerFn({ method: "POST" })
 
     const winner = ranked[0] ?? null;
     const highest = ranked[ranked.length - 1] ?? null;
+
 
     // Caveat: did the winner's OPENING quote hide fees we later got waived?
     let caveat = "";
@@ -151,10 +170,15 @@ export const buildReport = createServerFn({ method: "POST" })
       recommended: winner && {
         dealer_id: winner.dealer_id,
         dealer_name: winner.dealer_name,
-        reason: `Lowest ${L.bottom_line} after negotiation${caveat}`,
+        reason: negotiatedIds.has(winner.dealer_id)
+          ? `Negotiated ${L.bottom_line} with ${winner.dealer_name}${caveat}`
+          : `Lowest ${L.bottom_line}${caveat}`,
         savings_vs_highest:
-          highest ? highest.final_bottom_line - winner.final_bottom_line : 0,
+          highest && highest.final_bottom_line > winner.final_bottom_line
+            ? highest.final_bottom_line - winner.final_bottom_line
+            : 0,
       },
+
       red_flags,
       eval: {
         passed:
