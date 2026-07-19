@@ -329,7 +329,7 @@ async function runAgentSimulation(args: {
   const turns: Turn[] = (payload.simulated_conversation ?? [])
     .filter((t) => t?.message)
     .map((t) => ({
-      speaker: t.role === "user" ? "caller" : "counterparty",
+      speaker: (t.role === "user" ? "caller" : "counterparty") as "caller" | "counterparty",
       text: t.message,
     }))
     .slice(0, roundMax);
