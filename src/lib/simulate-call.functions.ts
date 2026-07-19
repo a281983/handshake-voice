@@ -220,6 +220,157 @@ async function loadCached(
   };
 }
 
+/** Ensure an ElevenLabs Convai agent exists for a persona; returns agent_id. */
+async function ensureDealerAgent(
+  supabaseAdmin: any,
+  vertical: string,
+  cfg: ReturnType<typeof getVertical>,
+  persona: ReturnType<typeof getVertical>["personas"][number],
+): Promise<string | null> {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) return null;
+  const configKey = `agent:dealer:${persona.id}`;
+  const { data: existing } = await supabaseAdmin
+    .from("system_config")
+    .select("value")
+    .eq("vertical", vertical)
+    .eq("key", configKey)
+    .maybeSingle();
+  const existingId = (existing?.value as { id?: string } | null | undefined)?.id;
+  if (existingId) return existingId;
+  const L = cfg.labels;
+  const body = {
+    name: `Handshake • ${cfg.id} • ${persona.name}`,
+    conversation_config: {
+      agent: {
+        first_message: `Thanks for calling ${persona.name}, this is ${persona.name.split(" ")[0]}. How can I help you?`,
+        language: "en",
+        prompt: {
+          prompt: `${persona.prompt}\n\nYou are answering an inbound phone call from a buyer's assistant. Stay in character. Keep every turn to 1-2 sentences. Always drive toward giving or refusing a concrete ${L.bottom_line} number.`,
+          llm: "gemini-2.0-flash-001",
+          temperature: 0.6,
+        },
+      },
+      tts: { voice_id: persona.voice_id, model_id: "eleven_turbo_v2" },
+      asr: { quality: "high" },
+    },
+  };
+  const res = await fetch("https://api.elevenlabs.io/v1/convai/agents/create", {
+    method: "POST",
+    headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    console.error(`ensureDealerAgent create failed [${res.status}]: ${await res.text()}`);
+    return null;
+  }
+  const { agent_id } = (await res.json()) as { agent_id: string };
+  await supabaseAdmin.from("system_config").upsert({
+    vertical,
+    key: configKey,
+    value: { id: agent_id },
+  });
+  return agent_id;
+}
+
+/**
+ * Real agent-to-agent call via ElevenLabs simulate-conversation. The dealer
+ * agent (created above) actually runs; our Handshake negotiator plays the
+ * simulated user. Returns the transcript the live agent produced.
+ */
+async function runAgentSimulation(args: {
+  agentId: string;
+  cfg: ReturnType<typeof getVertical>;
+  persona: ReturnType<typeof getVertical>["personas"][number];
+  spec: JobSpec;
+  round: 1 | 2;
+  leverage: string | null;
+}): Promise<Turn[]> {
+  const apiKey = process.env.ELEVENLABS_API_KEY!;
+  const { cfg, persona, spec, round, leverage } = args;
+  const L = cfg.labels;
+  const negotiatorPrompt = callerSystem(cfg, spec, leverage);
+  const body = {
+    simulation_specification: {
+      simulated_user_config: {
+        first_message: `Hi ${persona.name.split(" ")[0]}, this is Handshake calling on behalf of a client — got a minute?`,
+        language: "en",
+        prompt: {
+          prompt: `${negotiatorPrompt}\n\nYou are the CALLER on a phone call. Speak in short natural turns (1-2 sentences). End the call once you have a concrete ${L.bottom_line} number or a clear refusal — do not let it drag past 10 exchanges.`,
+        },
+      },
+    },
+  };
+  const res = await fetch(
+    `https://api.elevenlabs.io/v1/convai/agents/${args.agentId}/simulate-conversation`,
+    {
+      method: "POST",
+      headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) {
+    throw new Error(`ElevenLabs simulate-conversation [${res.status}]: ${await res.text()}`);
+  }
+  const payload = (await res.json()) as {
+    simulated_conversation: Array<{ role: string; message: string }>;
+  };
+  const turns: Turn[] = (payload.simulated_conversation ?? [])
+    .filter((t) => t?.message)
+    .map((t) => ({
+      speaker: t.role === "user" ? "caller" : "counterparty",
+      text: t.message,
+    }));
+  console.log(`[real-agent] ${persona.name} r${round}: ${turns.length} turns via agent ${args.agentId}`);
+  return turns;
+}
+
+/** Extract a structured quote from an already-produced transcript. */
+async function extractQuoteFromTranscript(
+  cfg: ReturnType<typeof getVertical>,
+  turns: Turn[],
+): Promise<SimQuote> {
+  const lovableKey = process.env.LOVABLE_API_KEY;
+  if (!lovableKey) {
+    return { line_items: [], bottom_line: null, add_ons_declined: [], outcome: "quoted" };
+  }
+  const L = cfg.labels;
+  const transcript = turns.map((t) => `${t.speaker.toUpperCase()}: ${t.text}`).join("\n");
+  const prompt = `From this phone-call transcript, extract the ${L.bottom_line} the counterparty committed to. Return ONLY valid JSON:\n{\n  "line_items": [{"label":"Base price","amount":27500},{"label":"Doc fee","amount":999}],\n  "bottom_line": <number that line_items sum to>,\n  "add_ons_declined": ["..."],\n  "outcome": "quoted"|"callback"|"declined"|"no_answer"\n}\nTranscript:\n${transcript}`;
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Lovable-API-Key": lovableKey,
+      "X-Lovable-AIG-SDK": "handshake-extract",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+    }),
+  });
+  if (!res.ok) {
+    return { line_items: [], bottom_line: null, add_ons_declined: [], outcome: "quoted" };
+  }
+  const payload = (await res.json()) as { choices: Array<{ message: { content: string } }> };
+  try {
+    const parsed = JSON.parse(payload.choices[0]?.message?.content ?? "{}") as SimQuote;
+    if (parsed.line_items?.length && parsed.bottom_line == null) {
+      parsed.bottom_line = parsed.line_items.reduce((a, li) => a + (li.amount || 0), 0);
+    }
+    return {
+      line_items: parsed.line_items ?? [],
+      bottom_line: parsed.bottom_line ?? null,
+      add_ons_declined: parsed.add_ons_declined ?? [],
+      outcome: parsed.outcome ?? "quoted",
+    };
+  } catch {
+    return { line_items: [], bottom_line: null, add_ons_declined: [], outcome: "quoted" };
+  }
+}
+
 export const simulateCall = createServerFn({ method: "POST" })
   .inputValidator(
     (i: { jobId: string; dealerId: string; round: 1 | 2 }) => i,
@@ -264,31 +415,34 @@ export const simulateCall = createServerFn({ method: "POST" })
       leverage = leverageBrief(cfg, packet);
     }
 
-    // Generate — with cached fallback on any failure.
+    // REAL ElevenLabs agent-to-agent call first; fall back to LLM sim if unavailable.
     let turns: Turn[];
     let quote: SimQuote;
     let from_cache = false;
     try {
-      const out = await generateCall({
-        cfg,
-        persona,
-        spec,
-        round: data.round,
-        leverage,
-      });
-      turns = out.turns;
-      quote = out.quote;
+      const agentId = await ensureDealerAgent(supabaseAdmin, job.vertical, cfg, persona);
+      if (agentId) {
+        turns = await runAgentSimulation({ agentId, cfg, persona, spec, round: data.round, leverage });
+        if (!turns.length) throw new Error("empty transcript from ElevenLabs agent");
+        quote = await extractQuoteFromTranscript(cfg, turns);
+      } else {
+        const out = await generateCall({ cfg, persona, spec, round: data.round, leverage });
+        turns = out.turns;
+        quote = out.quote;
+      }
     } catch (err) {
-      const cached = await loadCached(
-        supabaseAdmin,
-        data.jobId,
-        data.dealerId,
-        data.round,
-      );
-      if (!cached) throw err; // nothing to fall back to
-      turns = cached.turns;
-      quote = cached.quote;
-      from_cache = true;
+      console.error("real-agent path failed, falling back to LLM sim:", err);
+      try {
+        const out = await generateCall({ cfg, persona, spec, round: data.round, leverage });
+        turns = out.turns;
+        quote = out.quote;
+      } catch (err2) {
+        const cached = await loadCached(supabaseAdmin, data.jobId, data.dealerId, data.round);
+        if (!cached) throw err2;
+        turns = cached.turns;
+        quote = cached.quote;
+        from_cache = true;
+      }
     }
 
     // Anti-hallucination anchor: which turn indices mention the bottom line.
