@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Trophy, ShieldCheck, ShieldAlert, ChevronDown, Loader2, TrendingDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getVertical } from "@/lib/registry";
@@ -24,6 +24,38 @@ function ReportPage() {
       if (data) setQuotes(data as unknown as Quote[]);
     });
   }, [jobId]);
+
+  // Narrate the final recommendation once, when data lands.
+  const spokenRef = useRef(false);
+  useEffect(() => {
+    if (spokenRef.current || !report || !report.recommended || quotes.length === 0) return;
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    spokenRef.current = true;
+    const cfg = getVertical(vertical);
+    const L = cfg.labels;
+    const top = report.ranked[0];
+    const winner = report.recommended.dealer_name;
+    const finalPrice = top?.final_bottom_line ?? 0;
+    const r1 = quotes.find((q) => q.dealer_id === report.recommended!.dealer_id && q.round === 1);
+    const opening = r1?.bottom_line ?? null;
+    const savedVs = report.recommended.savings_vs_highest;
+    const drop = opening != null ? opening - finalPrice : 0;
+    const parts: string[] = [
+      `Here's your final deal. The recommended ${L.counterparty} is ${winner}, at a ${L.bottom_line} of $${finalPrice.toLocaleString()}.`,
+    ];
+    if (drop > 0 && opening != null) {
+      parts.push(`We got them from an opening quote of $${opening.toLocaleString()} down to $${finalPrice.toLocaleString()}, saving you $${drop.toLocaleString()} in the negotiation round.`);
+    }
+    if (savedVs > 0) {
+      parts.push(`That's $${savedVs.toLocaleString()} less than the highest quote we received from the market.`);
+    }
+    parts.push(`Every number in the final price is itemized and traced back to the call transcript, so nothing was bluffed.`);
+    const utter = new SpeechSynthesisUtterance(parts.join(" "));
+    utter.rate = 1.05;
+    try { window.speechSynthesis.cancel(); window.speechSynthesis.speak(utter); } catch { /* noop */ }
+    return () => { try { window.speechSynthesis.cancel(); } catch { /* noop */ } };
+  }, [report, quotes, vertical]);
+
 
   if (!report) {
     return (
