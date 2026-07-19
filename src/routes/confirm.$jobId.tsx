@@ -67,7 +67,7 @@ function ConfirmPage() {
     setBusy(true);
     await supabase
       .from("jobs")
-      .update({ job_spec: spec, stage: "spec_confirmed" })
+      .update({ job_spec: spec as unknown as never, stage: "spec_confirmed" })
       .eq("id", jobId);
     navigate({ to: "/simulate/$jobId", params: { jobId } });
   };
