@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { Mic, Upload, ArrowRight, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Mic, MicOff, Upload, ArrowRight, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getVertical } from "@/lib/registry";
 
@@ -22,8 +22,61 @@ function InterviewPage() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [micError, setMicError] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const supportsSpeech =
+    typeof window !== "undefined" &&
+    (("SpeechRecognition" in window) || ("webkitSpeechRecognition" in window));
 
   const current = questions[step];
+
+  const stopListening = () => {
+    try { recognitionRef.current?.stop(); } catch {}
+    setListening(false);
+  };
+
+  const startListening = () => {
+    setMicError(null);
+    if (!supportsSpeech) {
+      setMicError("Voice input isn't supported in this browser — please type instead.");
+      return;
+    }
+    try {
+      const Ctor: any =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const rec = new Ctor();
+      rec.lang = "en-US";
+      rec.interimResults = true;
+      rec.continuous = false;
+      rec.onresult = (e: any) => {
+        let text = "";
+        for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
+        setDraft(text.trim());
+      };
+      rec.onerror = (e: any) => {
+        setListening(false);
+        const err = e?.error ?? "unknown";
+        setMicError(
+          err === "not-allowed" || err === "service-not-allowed"
+            ? "Microphone permission was blocked. Enable it in your browser."
+            : err === "no-speech"
+            ? "Didn't catch that — try again."
+            : `Mic error: ${err}`,
+        );
+      };
+      rec.onend = () => setListening(false);
+      recognitionRef.current = rec;
+      rec.start();
+      setListening(true);
+    } catch (err: any) {
+      setMicError(`Couldn't start mic: ${err?.message ?? err}`);
+      setListening(false);
+    }
+  };
+
+  useEffect(() => () => stopListening(), []);
+
 
   const submitSpec = async (finalAnswers: Record<string, string>) => {
     setBusy(true);
@@ -83,13 +136,27 @@ function InterviewPage() {
           ))}
         </div>
 
-        {/* Voice orb (decorative + live-SDK mount point) */}
+        {/* Voice orb — tap to dictate */}
         <div className="mt-8 flex justify-center">
-          <div className="relative h-24 w-24 rounded-full bg-primary/10 border border-primary/30 grid place-items-center glow-ring">
-            <Mic className="h-8 w-8 text-primary" />
-            <span className="absolute inset-0 rounded-full border border-primary/20 animate-ping" />
-          </div>
+          <button
+            type="button"
+            onClick={listening ? stopListening : startListening}
+            aria-label={listening ? "Stop listening" : "Start voice input"}
+            className={`relative h-24 w-24 rounded-full grid place-items-center glow-ring transition ${
+              listening
+                ? "bg-primary text-primary-foreground border border-primary"
+                : "bg-primary/10 border border-primary/30 hover:bg-primary/20"
+            }`}
+          >
+            {listening ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8 text-primary" />}
+            {listening && (
+              <span className="absolute inset-0 rounded-full border border-primary/40 animate-ping" />
+            )}
+          </button>
         </div>
+        {micError && (
+          <p className="mt-3 text-xs text-destructive text-center">{micError}</p>
+        )}
 
         {/* Current question */}
         <h1 className="mt-8 text-2xl font-semibold text-center leading-tight">
