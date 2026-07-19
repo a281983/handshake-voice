@@ -72,8 +72,11 @@ function ConfirmPage() {
     navigate({ to: "/simulate/$jobId", params: { jobId } });
   };
 
-  // Show only the fields we actually asked the user about; keep defaults hidden.
-  const ordered = cfg.spec_schema.filter((s) => s.demo_critical);
+  // Show every field the interview asked about, in interview order.
+  const askedFields = cfg.interview.questions.map((q) => q.field);
+  const ordered = askedFields
+    .map((id) => cfg.spec_schema.find((s) => s.id === id))
+    .filter((f): f is NonNullable<typeof f> => Boolean(f));
 
   return (
     <main className="min-h-dvh grid-bg pb-28">

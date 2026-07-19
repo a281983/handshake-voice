@@ -87,6 +87,22 @@ function SimulatePage() {
           </div>
         )}
 
+        {p.narration && (
+          <div className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm text-primary/90 flex items-start gap-2">
+            <Volume2 className="h-4 w-4 mt-0.5 shrink-0 animate-pulse" />
+            <span className="leading-snug">{p.narration}</span>
+          </div>
+        )}
+
+        {p.awaitingContinue && (
+          <button
+            onClick={p.continueNow}
+            className="mt-3 w-full rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
+          >
+            Continue — start negotiating
+          </button>
+        )}
+
         {p.phase === "leverage" && (
           <div className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm text-primary/90">
             Ranking the quotes and arming the best competing offer as leverage…

@@ -41,16 +41,16 @@ function LandingPage() {
         {/* Hero */}
         <section className="mt-14 sm:mt-20">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-[11px] text-muted-foreground">
-            <span className="pulse-dot" /> Voice agent that makes the calls for you
+            <span className="pulse-dot" /> Voice agent that makes the calls and finds the best deal for you
           </div>
           <h1 className="mt-5 text-4xl sm:text-5xl font-semibold tracking-tight leading-[1.05]">
             Stop overpaying.
             <br />
-            <span className="text-primary">Make them compete.</span>
+            <span className="text-primary">Get the best deal.</span>
           </h1>
           <p className="mt-4 text-base text-muted-foreground max-w-lg">
-            Tell it what you want. It calls three sellers, gets itemized prices, then
-            calls back and plays them against each other — while you watch it happen.
+            Describe your requirements. We call the sellers, get itemized prices, and
+            negotiate the best deal for you.
           </p>
         </section>
 
@@ -62,7 +62,7 @@ function LandingPage() {
               value={ask}
               onChange={(e) => setAsk(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && ask.trim() && routeAsk()}
-              placeholder="Ask anything — “help me buy a used CR-V under 40k”"
+              placeholder="Ask anything"
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/70 py-2"
             />
             <button
@@ -99,9 +99,6 @@ function LandingPage() {
                     <Icon className="h-5 w-5 text-primary" />
                   </div>
                   <h3 className="mt-3 text-sm font-semibold leading-snug">{v.display_name}</h3>
-                  <p className="mt-1 text-[12px] text-muted-foreground leading-snug line-clamp-2">
-                    {v.tagline}
-                  </p>
                   {!v.demo_ready && (
                     <span className="absolute top-3 right-3 text-[9px] font-mono uppercase tracking-wide text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                       soon

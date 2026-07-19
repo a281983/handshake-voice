@@ -105,7 +105,24 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
+      <HomeButton />
       <Outlet />
     </QueryClientProvider>
+  );
+}
+
+function HomeButton() {
+  const router = useRouter();
+  const path = router.state.location.pathname;
+  if (path === "/") return null;
+  return (
+    <a
+      href="/"
+      title="Start over"
+      className="fixed top-3 left-3 z-50 h-9 w-9 grid place-items-center rounded-full border border-border bg-surface/90 backdrop-blur hover:bg-surface-2 text-foreground"
+      aria-label="Home"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12l9-9 9 9"/><path d="M9 21V12h6v9"/><path d="M5 10v11h14V10"/></svg>
+    </a>
   );
 }

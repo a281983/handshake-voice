@@ -58,7 +58,40 @@ export function usePipeline(jobId: string) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [views, setViews] = useState<Record<string, CallView>>({});
   const [labels, setLabels] = useState<{ bottom_line: string; counterparty_plural: string } | null>(null);
+  const [narration, setNarration] = useState<string | null>(null);
+  const [awaitingContinue, setAwaitingContinue] = useState(false);
+  const continueRef = useRef<(() => void) | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Browser TTS narrator between phases (uses default voice, no ElevenLabs cost).
+  const narrate = (text: string): Promise<void> =>
+    new Promise((resolve) => {
+      setNarration(text);
+      if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+        setTimeout(resolve, 1200);
+        return;
+      }
+      try {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1.05;
+        u.onend = () => resolve();
+        u.onerror = () => resolve();
+        window.speechSynthesis.speak(u);
+      } catch { resolve(); }
+    });
+
+  const waitForContinue = () =>
+    new Promise<void>((resolve) => {
+      setAwaitingContinue(true);
+      continueRef.current = () => {
+        setAwaitingContinue(false);
+        continueRef.current = null;
+        resolve();
+      };
+    });
+
+  const continueNow = () => continueRef.current?.();
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const running = useRef(false);
@@ -163,22 +196,32 @@ export function usePipeline(jobId: string) {
       };
       setCounterparties(disc.counterparties);
       setLabels(disc.labels);
-      await new Promise((r) => setTimeout(r, 900));
+      await narrate(
+        `I found ${disc.counterparties.length} ${disc.labels.counterparty_plural} nearby. These are the ones I'm going to call for quotes.`,
+      );
 
-      // 2. Quote round
+      // 2. Quote round — our agent calls each counterparty for a quote.
       setPhase("quoting");
       await setStage({ data: { jobId, stage: "quote_round" } });
+      await narrate(`Getting quotes now. Our agent is calling ${disc.counterparties[0]?.name ?? "the first dealer"} first.`);
       await runRound(1, disc.counterparties);
+      setNarration(null);
+
+      // PAUSE — user reviews quotes before negotiation.
+      await narrate("We've got the quotes from the market. Ready to negotiate when you are.");
+      await waitForContinue();
 
       // 3. Leverage
       setPhase("leverage");
       await setStage({ data: { jobId, stage: "building_leverage" } });
-      await new Promise((r) => setTimeout(r, 1100));
+      await narrate("Ranking the offers and arming the best competing quote as leverage.");
 
       // 4. Negotiation round
       setPhase("negotiating");
       await setStage({ data: { jobId, stage: "negotiation_round" } });
+      await narrate(`Calling ${disc.counterparties[0]?.name ?? "the top dealer"} back to negotiate.`);
       await runRound(2, disc.counterparties);
+      setNarration(null);
 
       // 5. Eval + report
       setPhase("finalizing");
@@ -193,10 +236,16 @@ export function usePipeline(jobId: string) {
     }
   }, [jobId, discover, runRound, doEval, doReport, setStage]);
 
-  const stopAudio = () => audioRef.current?.pause();
+  const stopAudio = () => {
+    audioRef.current?.pause();
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+  };
 
   return {
     phase, round, counterparties, activeId, views, labels, error,
+    narration, awaitingContinue, continueNow,
     start, stopAudio, key,
   };
 }

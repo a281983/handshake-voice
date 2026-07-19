@@ -33,10 +33,12 @@
   "interview": {
     "first_message": "Hey — what car are you after?",
     "questions": [
-      { "field": "make",      "ask": "What make and model are you after?" },
-      { "field": "age_years", "ask": "How old? A number of years — say zero if you want brand new." },
-      { "field": "budget",    "ask": "What's your budget in dollars, out the door?" },
-      { "field": "city",      "ask": "What city are you shopping in?" }
+      { "field": "make",             "ask": "What make and model?" },
+      { "field": "condition",        "ask": "New or used?" },
+      { "field": "budget",           "ask": "What's your budget?" },
+      { "field": "payment_method",   "ask": "Cash or finance?" },
+      { "field": "city",             "ask": "What city are you shopping in?" },
+      { "field": "must_have_features","ask": "Any specific features you need?" }
     ],
     "demo_spec": {
       "make": "Honda", "model": "CR-V", "age_years": 3, "budget": 30000, "city": "Boston, MA",
