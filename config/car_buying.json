@@ -14,13 +14,14 @@
   },
 
   "spec_schema": [
-    { "id": "make",        "label": "Make",        "type": "string",      "demo_critical": true,  "placeholder": "Honda" },
-    { "id": "model",       "label": "Model",       "type": "string",      "demo_critical": true,  "placeholder": "CR-V" },
+    { "id": "customer_name", "label": "Your name",    "type": "string",      "demo_critical": true,  "placeholder": "Sarah" },
+    { "id": "make",        "label": "Make and Model", "type": "string",      "demo_critical": true,  "placeholder": "Honda CR-V" },
     { "id": "age_years",   "label": "Age (years)", "type": "number",      "demo_critical": true,  "placeholder": "3" },
     { "id": "budget",      "label": "Budget ($)",  "type": "number",      "demo_critical": true,  "placeholder": "30000" },
     { "id": "city",        "label": "City",        "type": "string",      "demo_critical": true,  "placeholder": "Boston, MA" },
     { "id": "condition",   "label": "Condition",   "type": "string",      "demo_critical": false, "default": "used" },
     { "id": "payment_method", "label": "Payment",  "type": "string",      "demo_critical": false, "default": "finance" },
+    { "id": "model",       "label": "Model",       "type": "string",      "demo_critical": false, "default": "" },
     { "id": "trim",        "label": "Trim",        "type": "string",      "demo_critical": false, "default": "EX" },
     { "id": "mileage_max", "label": "Max mileage", "type": "number",      "demo_critical": false, "default": 40000 },
     { "id": "drivetrain",  "label": "Drivetrain",  "type": "string",      "demo_critical": false, "default": "AWD" },
