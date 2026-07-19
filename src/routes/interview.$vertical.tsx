@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Upload, ArrowRight, Loader2, Keyboard } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { getVertical } from "@/lib/registry";
+import { createJob } from "@/lib/jobs.functions";
 
 export const Route = createFileRoute("/interview/$vertical")({
   component: InterviewPage,
