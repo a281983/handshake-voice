@@ -197,7 +197,6 @@ export function usePipeline(jobId: string) {
           turnsShown: result.turns.length,
           state: "done",
           liveBottomLine: result.quote.bottom_line ?? null,
-        }>((resolve) => {
         });
         return;
       }
