@@ -15,7 +15,6 @@ import { Route as SimulateJobIdRouteImport } from './routes/simulate.$jobId'
 import { Route as ReportJobIdRouteImport } from './routes/report.$jobId'
 import { Route as InterviewVerticalRouteImport } from './routes/interview.$vertical'
 import { Route as ConfirmJobIdRouteImport } from './routes/confirm.$jobId'
-import { Route as AdminSyncRouteImport } from './routes/admin.sync'
 import { Route as ApiPublicElevenlabsPostcallRouteImport } from './routes/api/public/elevenlabs.postcall'
 
 const IndexRoute = IndexRouteImport.update({
@@ -48,11 +47,6 @@ const ConfirmJobIdRoute = ConfirmJobIdRouteImport.update({
   path: '/confirm/$jobId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminSyncRoute = AdminSyncRouteImport.update({
-  id: '/admin/sync',
-  path: '/admin/sync',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiPublicElevenlabsPostcallRoute =
   ApiPublicElevenlabsPostcallRouteImport.update({
     id: '/api/public/elevenlabs/postcall',
@@ -62,7 +56,6 @@ const ApiPublicElevenlabsPostcallRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin/sync': typeof AdminSyncRoute
   '/confirm/$jobId': typeof ConfirmJobIdRoute
   '/interview/$vertical': typeof InterviewVerticalRoute
   '/report/$jobId': typeof ReportJobIdRoute
@@ -72,7 +65,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin/sync': typeof AdminSyncRoute
   '/confirm/$jobId': typeof ConfirmJobIdRoute
   '/interview/$vertical': typeof InterviewVerticalRoute
   '/report/$jobId': typeof ReportJobIdRoute
@@ -83,7 +75,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin/sync': typeof AdminSyncRoute
   '/confirm/$jobId': typeof ConfirmJobIdRoute
   '/interview/$vertical': typeof InterviewVerticalRoute
   '/report/$jobId': typeof ReportJobIdRoute
@@ -95,7 +86,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/admin/sync'
     | '/confirm/$jobId'
     | '/interview/$vertical'
     | '/report/$jobId'
@@ -105,7 +95,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin/sync'
     | '/confirm/$jobId'
     | '/interview/$vertical'
     | '/report/$jobId'
@@ -115,7 +104,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/admin/sync'
     | '/confirm/$jobId'
     | '/interview/$vertical'
     | '/report/$jobId'
@@ -126,7 +114,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminSyncRoute: typeof AdminSyncRoute
   ConfirmJobIdRoute: typeof ConfirmJobIdRoute
   InterviewVerticalRoute: typeof InterviewVerticalRoute
   ReportJobIdRoute: typeof ReportJobIdRoute
@@ -179,13 +166,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfirmJobIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/sync': {
-      id: '/admin/sync'
-      path: '/admin/sync'
-      fullPath: '/admin/sync'
-      preLoaderRoute: typeof AdminSyncRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/elevenlabs/postcall': {
       id: '/api/public/elevenlabs/postcall'
       path: '/api/public/elevenlabs/postcall'
@@ -198,7 +178,6 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminSyncRoute: AdminSyncRoute,
   ConfirmJobIdRoute: ConfirmJobIdRoute,
   InterviewVerticalRoute: InterviewVerticalRoute,
   ReportJobIdRoute: ReportJobIdRoute,
