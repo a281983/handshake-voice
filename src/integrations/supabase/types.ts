@@ -14,7 +14,201 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      call_events: {
+        Row: {
+          dealer_id: string | null
+          id: string
+          job_id: string
+          message: string | null
+          stage: string
+          status: string
+          ts: string
+        }
+        Insert: {
+          dealer_id?: string | null
+          id?: string
+          job_id: string
+          message?: string | null
+          stage: string
+          status?: string
+          ts?: string
+        }
+        Update: {
+          dealer_id?: string | null
+          id?: string
+          job_id?: string
+          message?: string | null
+          stage?: string
+          status?: string
+          ts?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dealers: {
+        Row: {
+          created_at: string
+          dealer_id: string
+          dealer_name: string
+          id: string
+          job_id: string
+          style: string | null
+        }
+        Insert: {
+          created_at?: string
+          dealer_id: string
+          dealer_name: string
+          id?: string
+          job_id: string
+          style?: string | null
+        }
+        Update: {
+          created_at?: string
+          dealer_id?: string
+          dealer_name?: string
+          id?: string
+          job_id?: string
+          style?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dealers_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jobs: {
+        Row: {
+          created_at: string
+          id: string
+          job_spec: Json
+          report: Json | null
+          stage: string
+          updated_at: string
+          vertical: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_spec?: Json
+          report?: Json | null
+          stage?: string
+          updated_at?: string
+          vertical: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_spec?: Json
+          report?: Json | null
+          stage?: string
+          updated_at?: string
+          vertical?: string
+        }
+        Relationships: []
+      }
+      quotes: {
+        Row: {
+          add_ons_declined: Json
+          apr: number | null
+          bottom_line: number | null
+          conversation_id: string | null
+          created_at: string
+          dealer_id: string
+          dealer_name: string
+          fees: Json
+          id: string
+          job_id: string
+          line_items: Json
+          out_the_door: number | null
+          outcome: string
+          quote_source_turns: Json | null
+          round: number
+          trade_in_offer: number | null
+          transcript: string | null
+          vehicle_price: number | null
+        }
+        Insert: {
+          add_ons_declined?: Json
+          apr?: number | null
+          bottom_line?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          dealer_id: string
+          dealer_name: string
+          fees?: Json
+          id?: string
+          job_id: string
+          line_items?: Json
+          out_the_door?: number | null
+          outcome?: string
+          quote_source_turns?: Json | null
+          round?: number
+          trade_in_offer?: number | null
+          transcript?: string | null
+          vehicle_price?: number | null
+        }
+        Update: {
+          add_ons_declined?: Json
+          apr?: number | null
+          bottom_line?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          dealer_id?: string
+          dealer_name?: string
+          fees?: Json
+          id?: string
+          job_id?: string
+          line_items?: Json
+          out_the_door?: number | null
+          outcome?: string
+          quote_source_turns?: Json | null
+          round?: number
+          trade_in_offer?: number | null
+          transcript?: string | null
+          vehicle_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_config: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+          vertical: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+          vertical: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+          vertical?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
