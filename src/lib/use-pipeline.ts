@@ -115,8 +115,9 @@ export function usePipeline(jobId: string) {
                 text: turn.text,
                 voiceId: turn.speaker === "caller" ? res.caller_voice_id : res.persona.voice_id,
               },
-            })) as { audioBase64: string; mime: string };
-            await play(`data:${mime};base64,${audioBase64}`);
+            })) as { audioBase64: string | null; mime: string };
+            if (audioBase64) await play(`data:${mime};base64,${audioBase64}`);
+            else await new Promise((rs) => setTimeout(rs, 500));
           } catch {
             await new Promise((rs) => setTimeout(rs, 500));
           }
