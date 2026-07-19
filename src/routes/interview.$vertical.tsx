@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Upload, ArrowRight, Loader2, Keyboard } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { getVertical } from "@/lib/registry";
+import { createJob } from "@/lib/jobs.functions";
 
 export const Route = createFileRoute("/interview/$vertical")({
   component: InterviewPage,
@@ -185,13 +185,12 @@ function InterviewPage() {
     }
 
     const spec = { vertical: cfg.id, fields };
-    const { data, error } = await supabase
-      .from("jobs")
-      .insert({ vertical: cfg.id, job_spec: spec as unknown as never, stage: "intake" })
-      .select("id")
-      .single();
-    if (error || !data) { setBusy(false); return; }
-    navigate({ to: "/confirm/$jobId", params: { jobId: data.id } });
+    try {
+      const { id } = await createJob({ data: { vertical: cfg.id, spec } });
+      navigate({ to: "/confirm/$jobId", params: { jobId: id } });
+    } catch {
+      setBusy(false);
+    }
   };
 
   const answerCurrent = () => {
