@@ -129,6 +129,20 @@ function SimulatePage() {
             const isFocus = p.activeId === c.id && (p.phase === "quoting" || p.phase === "negotiating");
             const live = view?.liveBottomLine;
             const isOpen = isFocus || expanded[c.id] === true;
+            const isLive = p.pendingLiveCall?.dealerId === c.id && p.pendingLiveCall?.round === p.round;
+
+            if (isLive) {
+              return (
+                <LiveCallCard
+                  key={c.id}
+                  jobId={jobId}
+                  round={p.round}
+                  counterparty={c}
+                  bottomLabel={bottomLabel}
+                  onFinish={p.finishLiveCall}
+                />
+              );
+            }
 
             return (
               <div
