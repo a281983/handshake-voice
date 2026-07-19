@@ -255,7 +255,7 @@ export function usePipeline(jobId: string) {
             const voiceId = turn.speaker === "caller" ? callerVoice : counterVoice;
             const s = await synth({ data: { text: turn.text, voiceId } });
             if (s.audioBase64) {
-              await playAndType(`data:${s.mime};base64,${s.audioBase64}`, turn.text, r, id, i);
+              await playAndType(`data:${s.mime};base64,${s.audioBase64}`, turn.text, r, id, i, turn.speaker === "caller");
             } else {
               await speakAndType(turn.text, r, id, i, turn.speaker === "caller");
             }
