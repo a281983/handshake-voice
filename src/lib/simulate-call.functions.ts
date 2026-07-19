@@ -98,10 +98,21 @@ async function generateCall(args: {
   leverage: string | null;
 }): Promise<{ turns: Turn[]; quote: SimQuote }> {
   const { cfg, persona, spec, round, leverage } = args;
-  const apiKey = process.env.LLM_API_KEY ?? process.env.OPENAI_API_KEY;
+  // Default to Lovable AI Gateway (no user key needed). Users can override
+  // with OPENAI_API_KEY + LLM_BASE_URL if they want direct OpenAI.
+  const lovableKey = process.env.LOVABLE_API_KEY;
+  const apiKey = process.env.LLM_API_KEY ?? process.env.OPENAI_API_KEY ?? lovableKey;
   const baseUrl =
-    process.env.LLM_BASE_URL ?? "https://api.openai.com/v1";
-  if (!apiKey) throw new Error("LLM_API_KEY / OPENAI_API_KEY missing");
+    process.env.LLM_BASE_URL ??
+    (process.env.OPENAI_API_KEY
+      ? "https://api.openai.com/v1"
+      : "https://ai.gateway.lovable.dev/v1");
+  if (!apiKey) throw new Error("No LLM key available (LOVABLE_API_KEY missing)");
+
+  // If the config's model isn't a gateway-supported id, fall back to a
+  // Lovable AI Gateway model when we're on the gateway.
+  const isGateway = baseUrl.includes("gateway.lovable.dev");
+  const model = isGateway ? "google/gemini-2.5-flash" : cfg.simulation.model;
 
   const L = cfg.labels;
   const sim = cfg.simulation;
@@ -140,7 +151,7 @@ async function generateCall(args: {
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: sim.model,
+      model,
       messages: [{ role: "user", content: genPrompt }],
       response_format: { type: "json_object" },
       temperature: round === 2 ? 0.7 : 0.6,
