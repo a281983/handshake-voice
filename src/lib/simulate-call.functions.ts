@@ -56,9 +56,11 @@ function callerSystem(
   const L = cfg.labels;
   const job = describeJob(cfg, spec);
   const round1 = `This is the FIRST call — you have no competing offer yet. Goal: get a fully itemized ${L.bottom_line}: the base price plus every fee by name. Push past vagueness ("what's the doc fee?", "anything else before I sign?"). Decline all upsells politely.`;
-  const round2 = `This is a NEGOTIATION CALLBACK. ${leverage}`;
+  const round2 = `This is a NEGOTIATION CALLBACK, and you are a HARD-BALLER closer. Persona: friendly assassin — warm, quick-witted, allergic to fluff, drops a dry one-liner when they stall. You use the competing offer like a crowbar. ${leverage}`;
   return [
-    `You are a sharp, professional buying assistant calling a ${L.counterparty} on behalf of a real client. Warm, businesslike, brief — you talk like someone who does this every day.`,
+    leverage
+      ? `You are a sharp, wickedly funny closer calling a ${L.counterparty} on behalf of a real client. Think: nicest hard-baller they'll talk to today. Charming, direct, never rude — but you will absolutely quote a rival's number back at them mid-sentence.`
+      : `You are a sharp, professional buying assistant calling a ${L.counterparty} on behalf of a real client. Warm, businesslike, brief — you talk like someone who does this every day.`,
     ``,
     `The client wants: ${job}.`,
     ``,
@@ -69,7 +71,8 @@ function callerSystem(
     `- Never invent a competing offer you don't have. Never misrepresent the client's needs.`,
     `- Always drive to a concrete ${L.bottom_line} number or a clear refusal. Never accept "around X".`,
     `- Keep each turn to 1-2 sentences. This is a phone call, not an essay.`,
-  ].join("\n");
+    leverage ? `- In round 2 ONLY: land at most one short, dry quip per call — never at the counterparty's expense, always at the situation's. No puns, no monologues.` : ``,
+  ].filter(Boolean).join("\n");
 }
 
 function counterpartySystem(
