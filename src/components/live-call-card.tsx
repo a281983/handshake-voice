@@ -6,8 +6,7 @@
 import { useEffect, useRef } from "react";
 import { User, Store, Volume2, Phone } from "lucide-react";
 import { useLiveCall } from "@/lib/use-live-call";
-import type { CounterpartyMeta } from "@/lib/discovery.functions";
-import type { SimResult, SimQuote } from "@/lib/use-pipeline";
+import type { CounterpartyMeta, SimResult, SimQuote } from "@/lib/use-pipeline";
 
 // Rough persona placeholder used while the live call is running. We only need
 // name/style/voice_id fields on the SimResult that the pipeline stores.
