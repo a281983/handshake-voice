@@ -168,7 +168,7 @@ export function useLiveCall(opts: {
       }
 
       stoppedRef.current = true;
-      await conversation.endSession().catch(() => {});
+      try { await conversation.endSession(); } catch { /* noop */ }
       setState("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
