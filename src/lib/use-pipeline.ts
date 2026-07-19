@@ -52,7 +52,7 @@ export function usePipeline(jobId: string) {
   const doEval = useServerFn(runEval);
   const doReport = useServerFn(buildReport);
   const setStage = useServerFn(setJobStage);
-  const provision = useServerFn(provisionAgents);
+  const synth = useServerFn(synthesizeTurn);
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [round, setRound] = useState<1 | 2>(1);
@@ -64,32 +64,7 @@ export function usePipeline(jobId: string) {
   const [awaitingContinue, setAwaitingContinue] = useState(false);
   const continueRef = useRef<(() => void) | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pendingLiveCall, setPendingLiveCall] = useState<{
-    round: 1 | 2;
-    dealerId: string;
-  } | null>(null);
-  type LiveCallResult = {
-    turns: Array<{ speaker: "caller" | "counterparty"; text: string }>;
-    quote: SimQuote;
-    persona: SimResult["persona"];
-    caller_voice_id: string;
-  };
-  const liveCallResolveRef = useRef<((result: LiveCallResult | null) => void) | null>(null);
 
-  const finishLiveCall = useCallback(
-    (result: LiveCallResult) => {
-      liveCallResolveRef.current?.(result);
-      liveCallResolveRef.current = null;
-      setPendingLiveCall(null);
-    },
-    [],
-  );
-
-  const failLiveCall = useCallback(() => {
-    liveCallResolveRef.current?.(null);
-    liveCallResolveRef.current = null;
-    setPendingLiveCall(null);
-  }, []);
 
   // Browser TTS narrator between phases (uses default voice, no ElevenLabs cost).
   const narrate = (text: string): Promise<void> =>
