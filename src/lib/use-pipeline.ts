@@ -68,7 +68,21 @@ export function usePipeline(jobId: string) {
   const [error, setError] = useState<string | null>(null);
 
 
-  // Browser TTS narrator between phases (uses default voice, no ElevenLabs cost).
+  // Browser TTS narrator between phases — prefer a female voice for "Sarah" (the assistant).
+  const pickFemaleVoice = (): SpeechSynthesisVoice | null => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices?.length) return null;
+    const en = voices.filter((v) => /^en(-|_|$)/i.test(v.lang));
+    const prefer = ["Samantha", "Karen", "Victoria", "Serena", "Moira", "Tessa", "Google UK English Female", "Google US English", "Microsoft Aria", "Microsoft Jenny", "Microsoft Zira"];
+    for (const name of prefer) {
+      const hit = en.find((v) => v.name.includes(name));
+      if (hit) return hit;
+    }
+    const female = en.find((v) => /female|woman|zira|aria|jenny|samantha|karen|victoria/i.test(v.name));
+    return female ?? en[0] ?? voices[0];
+  };
+
   const narrate = (text: string): Promise<void> =>
     new Promise((resolve) => {
       setNarration(text);
@@ -79,7 +93,10 @@ export function usePipeline(jobId: string) {
       try {
         window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text);
-        u.rate = 1.05;
+        u.rate = 1.02;
+        u.pitch = 1.1;
+        const v = pickFemaleVoice();
+        if (v) u.voice = v;
         u.onend = () => resolve();
         u.onerror = () => resolve();
         window.speechSynthesis.speak(u);
