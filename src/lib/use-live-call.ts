@@ -31,7 +31,7 @@ export function useLiveCall(opts: {
     bottom_line: number | null;
     add_ons_declined: string[];
     outcome: string;
-  }) => void;
+  }, transcript: LiveTurn[]) => void;
 }) {
   const getToken = useServerFn(getDealerCallToken);
   const nextTurn = useServerFn(nextNegotiatorTurn);
@@ -55,12 +55,12 @@ export function useLiveCall(opts: {
       if (!stoppedRef.current) setState("done");
     },
     onError: (e: unknown) => {
-      setError(String(e));
+      setError(typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
       setState("error");
     },
     onMessage: (msg: any) => {
       // Buffer dealer voice transcripts; resolve when we get a full response.
-      if (msg?.source === "ai" || msg?.type === "agent_response") {
+      if (msg?.role === "agent" || msg?.source === "ai" || msg?.type === "agent_response") {
         const text = msg?.message ?? msg?.agent_response_event?.agent_response ?? "";
         if (!text) return;
         dealerBuffer.current = text;
@@ -76,6 +76,20 @@ export function useLiveCall(opts: {
         pendingDealerResolve.current?.(text);
         pendingDealerResolve.current = null;
       }
+    },
+    onAgentChatResponsePart: (part: any) => {
+      const text = part?.text ?? part?.content ?? part?.message ?? "";
+      if (!text || pendingDealerResolve.current) return;
+      dealerBuffer.current = text;
+    },
+    onAgentResponseCorrection: (part: any) => {
+      const text = part?.corrected_agent_response ?? part?.text ?? "";
+      if (!text) return;
+      const turn: LiveTurn = { speaker: "dealer", text };
+      transcriptRef.current = [...transcriptRef.current, turn];
+      setTranscript((t) => [...t, turn]);
+      pendingDealerResolve.current?.(text);
+      pendingDealerResolve.current = null;
     },
   });
 
@@ -144,7 +158,7 @@ export function useLiveCall(opts: {
               quote: nt.quote,
             },
           });
-          opts.onDone?.(nt.quote);
+          opts.onDone?.(nt.quote, transcriptRef.current);
           break;
         }
         if (!nt.text) break;
