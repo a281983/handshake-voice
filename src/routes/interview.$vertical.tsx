@@ -22,8 +22,61 @@ function InterviewPage() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [micError, setMicError] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const supportsSpeech =
+    typeof window !== "undefined" &&
+    (("SpeechRecognition" in window) || ("webkitSpeechRecognition" in window));
 
   const current = questions[step];
+
+  const stopListening = () => {
+    try { recognitionRef.current?.stop(); } catch {}
+    setListening(false);
+  };
+
+  const startListening = () => {
+    setMicError(null);
+    if (!supportsSpeech) {
+      setMicError("Voice input isn't supported in this browser — please type instead.");
+      return;
+    }
+    try {
+      const Ctor: any =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const rec = new Ctor();
+      rec.lang = "en-US";
+      rec.interimResults = true;
+      rec.continuous = false;
+      rec.onresult = (e: any) => {
+        let text = "";
+        for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
+        setDraft(text.trim());
+      };
+      rec.onerror = (e: any) => {
+        setListening(false);
+        const err = e?.error ?? "unknown";
+        setMicError(
+          err === "not-allowed" || err === "service-not-allowed"
+            ? "Microphone permission was blocked. Enable it in your browser."
+            : err === "no-speech"
+            ? "Didn't catch that — try again."
+            : `Mic error: ${err}`,
+        );
+      };
+      rec.onend = () => setListening(false);
+      recognitionRef.current = rec;
+      rec.start();
+      setListening(true);
+    } catch (err: any) {
+      setMicError(`Couldn't start mic: ${err?.message ?? err}`);
+      setListening(false);
+    }
+  };
+
+  useEffect(() => () => stopListening(), []);
+
 
   const submitSpec = async (finalAnswers: Record<string, string>) => {
     setBusy(true);
