@@ -362,10 +362,12 @@ export function usePipeline(jobId: string) {
         ? disc.counterparties.find((c) => c.id === cheapest.id) ?? disc.counterparties[0]
         : disc.counterparties[0];
       const negoTarget = negoDealer?.name ?? "the top dealer";
-      await narrate(`Calling ${negoTarget} back to negotiate for you, ${clientName}.`);
+      await narrate(`Calling ${negoTarget} back to negotiate for you, ${clientName}. Listen in — Laura's going to squeeze every fee she can.`);
       await runRound(2, [negoDealer]);
+      await narrate(`Negotiation wrapped, ${clientName}. Locking in the numbers and putting your final recommendation together now.`);
 
       setNarration(null);
+
 
       // 5. Eval + report — no artificial waits.
       setPhase("finalizing");
