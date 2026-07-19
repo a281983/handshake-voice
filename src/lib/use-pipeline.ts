@@ -282,6 +282,7 @@ export function usePipeline(jobId: string) {
   return {
     phase, round, counterparties, activeId, views, labels, error,
     narration, awaitingContinue, continueNow,
+    pendingLiveCall, finishLiveCall,
     start, stopAudio, key,
   };
 }
