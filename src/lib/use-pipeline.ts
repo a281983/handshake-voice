@@ -43,6 +43,8 @@ export type CallView = {
   state: "pending" | "on_call" | "done";
   /** Live bottom line as it changes turn-to-turn (the count-down effect). */
   liveBottomLine: number | null;
+  /** Focused call: the turn currently being spoken + typed, in sync with audio. */
+  typing: { index: number; text: string } | null;
 };
 
 export function usePipeline(jobId: string) {
