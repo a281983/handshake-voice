@@ -27,6 +27,13 @@ function ReportPage() {
 
   // Narrate the final recommendation once, when data lands.
   const spokenRef = useRef(false);
+  const [clientName, setClientName] = useState("Sarah");
+  useEffect(() => {
+    supabase.from("jobs").select("job_spec").eq("id", jobId).single().then(({ data }: { data: any }) => {
+      const n = data?.job_spec?.fields?.customer_name;
+      if (typeof n === "string" && n.trim()) setClientName(n.trim().split(/\s+/)[0]);
+    });
+  }, [jobId]);
   useEffect(() => {
     if (spokenRef.current || !report || !report.recommended || quotes.length === 0) return;
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
@@ -41,15 +48,16 @@ function ReportPage() {
     const savedVs = report.recommended.savings_vs_highest;
     const drop = opening != null ? opening - finalPrice : 0;
     const parts: string[] = [
-      `Alright Sarah, here's your final deal. The recommended ${L.counterparty} is ${winner}, at a ${L.bottom_line} of $${finalPrice.toLocaleString()}.`,
+      `Alright ${clientName}, here's your final deal. The recommended ${L.counterparty} is ${winner}, at a ${L.bottom_line} of $${finalPrice.toLocaleString()}.`,
     ];
     if (drop > 0 && opening != null) {
       parts.push(`We got them from an opening quote of $${opening.toLocaleString()} down to $${finalPrice.toLocaleString()}, saving you $${drop.toLocaleString()} in the negotiation round.`);
     }
     if (savedVs > 0) {
-      parts.push(`That's $${savedVs.toLocaleString()} less than the highest quote we received from the market.`);
+      parts.push(`That's $${savedVs.toLocaleString()} less than the highest quote we received. Deal locked in — enjoy the ride, ${clientName}.`);
+    } else {
+      parts.push(`Deal locked in — enjoy the ride, ${clientName}.`);
     }
-    parts.push(`Every number in the final price is itemized and traced back to the call transcript, so nothing was bluffed.`);
     const utter = new SpeechSynthesisUtterance(parts.join(" "));
     utter.rate = 1.02;
     utter.pitch = 1.1;
@@ -63,7 +71,7 @@ function ReportPage() {
     } catch { /* noop */ }
     try { window.speechSynthesis.cancel(); window.speechSynthesis.speak(utter); } catch { /* noop */ }
     return () => { try { window.speechSynthesis.cancel(); } catch { /* noop */ } };
-  }, [report, quotes, vertical]);
+  }, [report, quotes, vertical, clientName]);
 
 
   if (!report) {
