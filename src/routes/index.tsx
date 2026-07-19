@@ -31,7 +31,7 @@ function LandingPage() {
     const spec = { vertical: cfg.id, fields: cfg.interview.demo_spec };
     const { data, error } = await supabase
       .from("jobs")
-      .insert({ vertical: cfg.id, job_spec: spec, stage: "intake" })
+      .insert({ vertical: cfg.id, job_spec: spec as unknown as never, stage: "intake" })
       .select("id")
       .single();
     if (error || !data) {
