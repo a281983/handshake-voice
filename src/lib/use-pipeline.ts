@@ -106,18 +106,92 @@ export function usePipeline(jobId: string) {
   const setView = (r: 1 | 2, id: string, patch: Partial<CallView>) =>
     setViews((v) => {
       const k = key(r, id);
-      const prev = v[k] ?? { turnsShown: 0, state: "pending", liveBottomLine: null };
+      const prev = v[k] ?? { turnsShown: 0, state: "pending", liveBottomLine: null, typing: null };
       return { ...v, [k]: { ...prev, ...patch } };
     });
 
-  const play = (src: string) =>
+  /**
+   * Play audio for one turn AND type its text on-screen in sync with the audio.
+   * The typing animation runs against the audio's actual playback duration so
+   * the text lands exactly when the voice finishes.
+   */
+  const playAndType = (
+    src: string,
+    text: string,
+    r: 1 | 2,
+    id: string,
+    index: number,
+  ) =>
     new Promise<void>((resolve) => {
       const a = new Audio(src);
       a.playbackRate = 1.5;
       audioRef.current = a;
-      a.onended = () => resolve();
-      a.onerror = () => resolve();
-      a.play().catch(() => resolve());
+
+      let raf = 0;
+      let startedAt = 0;
+      let totalMs = Math.max(600, text.length * 42); // fallback estimate
+
+      const tick = () => {
+        const t = Math.min(1, (performance.now() - startedAt) / totalMs);
+        const chars = Math.max(1, Math.floor(t * text.length));
+        setView(r, id, { typing: { index, text: text.slice(0, chars) } });
+        if (t < 1) raf = requestAnimationFrame(tick);
+      };
+
+      const finish = () => {
+        cancelAnimationFrame(raf);
+        setView(r, id, { turnsShown: index + 1, typing: null });
+        resolve();
+      };
+
+      a.onloadedmetadata = () => {
+        if (isFinite(a.duration) && a.duration > 0) {
+          totalMs = (a.duration / a.playbackRate) * 1000;
+        }
+      };
+      a.onended = finish;
+      a.onerror = finish;
+      startedAt = performance.now();
+      raf = requestAnimationFrame(tick);
+      a.play().catch(finish);
+    });
+
+  /** Browser-TTS fallback: still type in sync with the utterance. */
+  const speakAndType = (text: string, r: 1 | 2, id: string, index: number, isCaller: boolean) =>
+    new Promise<void>((resolve) => {
+      let raf = 0;
+      let startedAt = performance.now();
+      // ~180 wpm at rate 1.35 -> ~40ms/char is a reasonable fallback.
+      const totalMs = Math.max(600, text.length * 45);
+
+      const tick = () => {
+        const t = Math.min(1, (performance.now() - startedAt) / totalMs);
+        const chars = Math.max(1, Math.floor(t * text.length));
+        setView(r, id, { typing: { index, text: text.slice(0, chars) } });
+        if (t < 1) raf = requestAnimationFrame(tick);
+      };
+
+      const finish = () => {
+        cancelAnimationFrame(raf);
+        setView(r, id, { turnsShown: index + 1, typing: null });
+        resolve();
+      };
+
+      raf = requestAnimationFrame(tick);
+      if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+        setTimeout(finish, totalMs);
+        return;
+      }
+      try {
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1.35;
+        u.pitch = isCaller ? 1.0 : 0.85;
+        u.onend = finish;
+        u.onerror = finish;
+        window.speechSynthesis.speak(u);
+      } catch {
+        setTimeout(finish, totalMs);
+      }
     });
 
   /** Extract any dollar figure mentioned in a turn (for the live count-down). */
@@ -132,7 +206,7 @@ export function usePipeline(jobId: string) {
   const runOne = useCallback(
     async (id: string, r: 1 | 2, focused: boolean) => {
       if (focused) setActiveId(id);
-      setView(r, id, { state: "on_call", turnsShown: 0 });
+      setView(r, id, { state: "on_call", turnsShown: 0, typing: null });
 
       const res = (await simulate({
         data: { jobId, dealerId: id, round: r },
@@ -145,41 +219,25 @@ export function usePipeline(jobId: string) {
       for (let i = 0; i < res.turns.length; i++) {
         const turn = res.turns[i];
         const money = extractMoney(turn.text);
-        setView(r, id, {
-          turnsShown: i + 1,
-          ...(money ? { liveBottomLine: money } : {}),
-        });
+        if (money) setView(r, id, { liveBottomLine: money });
 
         if (focused) {
-          // Real TTS per turn — each agent in its own voice — so the user hears
-          // the two agents actually talking to each other.
+          // Start typing empty so the bubble appears immediately.
+          setView(r, id, { typing: { index: i, text: "" } });
           try {
             const voiceId = turn.speaker === "caller" ? callerVoice : counterVoice;
             const s = await synth({ data: { text: turn.text, voiceId } });
             if (s.audioBase64) {
-              await play(`data:${s.mime};base64,${s.audioBase64}`);
+              await playAndType(`data:${s.mime};base64,${s.audioBase64}`, turn.text, r, id, i);
             } else {
-              // No ElevenLabs key — fall back to browser TTS so the user still hears both sides.
-              await new Promise<void>((resolve) => {
-                if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-                  setTimeout(resolve, 900);
-                  return;
-                }
-                try {
-                  const u = new SpeechSynthesisUtterance(turn.text);
-                  u.rate = 1.35;
-                  u.pitch = turn.speaker === "caller" ? 1.0 : 0.85;
-                  u.onend = () => resolve();
-                  u.onerror = () => resolve();
-                  window.speechSynthesis.speak(u);
-                } catch { resolve(); }
-              });
+              await speakAndType(turn.text, r, id, i, turn.speaker === "caller");
             }
           } catch {
-            await new Promise((rs) => setTimeout(rs, 600));
+            await speakAndType(turn.text, r, id, i, turn.speaker === "caller");
           }
         } else {
           // Background: reveal without audio so multiple calls progress visibly in parallel.
+          setView(r, id, { turnsShown: i + 1 });
           await new Promise((rs) => setTimeout(rs, 420));
         }
       }
