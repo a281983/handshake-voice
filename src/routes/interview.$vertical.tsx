@@ -186,11 +186,7 @@ function InterviewPage() {
       else if (f.type === "boolean") fields[k] = /^(y|yes|true)/i.test(v);
       else fields[k] = v;
     }
-    if (fields.make && typeof fields.make === "string" && (fields.make as string).includes(" ") && !finalAnswers.model) {
-      const [mk, ...rest] = (fields.make as string).split(" ");
-      fields.make = mk;
-      if (rest.length) fields.model = rest.join(" ");
-    }
+    // "Make and Model" is now a single field — keep the whole string.
 
     const spec = { vertical: cfg.id, fields };
     try {
