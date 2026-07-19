@@ -73,7 +73,7 @@ export const provisionAgents = createServerFn({ method: "POST" })
       const { data: existing } = await supabaseAdmin
         .from("system_config")
         .select("value")
-        .eq("vertical", data.vertical)
+        .eq("vertical", vertical)
         .eq("key", configKey)
         .maybeSingle();
       const existingId = (existing?.value as { id?: string } | null | undefined)?.id;
@@ -93,13 +93,13 @@ export const provisionAgents = createServerFn({ method: "POST" })
       const { agent_id } = (await res.json()) as { agent_id: string };
 
       await supabaseAdmin.from("system_config").upsert({
-        vertical: data.vertical,
+        vertical: vertical,
         key: configKey,
         value: { id: agent_id },
       });
       results[persona.id] = { agent_id, created: true };
     }
-    return { vertical: data.vertical, results };
+    return { vertical: vertical, results };
   });
 
 /** Mint a WebRTC conversation token for a specific dealer persona. */
