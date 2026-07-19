@@ -140,6 +140,7 @@ function SimulatePage() {
                   counterparty={c}
                   bottomLabel={bottomLabel}
                   onFinish={p.finishLiveCall}
+                  onFail={p.failLiveCall}
                 />
               );
             }
