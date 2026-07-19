@@ -98,7 +98,7 @@ function ReportPage() {
           {/* Eval badge */}
           {report.eval.passed ? (
             <span className="inline-flex items-center gap-1 text-[11px] text-success bg-success/10 border border-success/30 px-2 py-1 rounded-full">
-              <ShieldCheck className="h-3 w-3" /> Verified — no bluffed numbers
+              <ShieldCheck className="h-3 w-3" /> Verified
             </span>
           ) : (
             <span className="inline-flex items-center gap-1 text-[11px] text-warning bg-warning/10 border border-warning/30 px-2 py-1 rounded-full">
