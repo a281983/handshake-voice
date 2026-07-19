@@ -48,9 +48,14 @@ export function useLiveCall(opts: {
   const stoppedRef = useRef(false);
   const pendingDealerResolve = useRef<((text: string) => void) | null>(null);
   const dealerBuffer = useRef<string>("");
+  const connectResolveRef = useRef<(() => void) | null>(null);
 
   const conversation = useConversation({
-    onConnect: () => setState("live"),
+    onConnect: () => {
+      setState("live");
+      connectResolveRef.current?.();
+      connectResolveRef.current = null;
+    },
     onDisconnect: () => {
       if (!stoppedRef.current) setState("done");
     },
@@ -112,6 +117,18 @@ export function useLiveCall(opts: {
       };
     });
 
+  const waitForConnect = (timeoutMs = 15_000) =>
+    new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        connectResolveRef.current = null;
+        reject(new Error("Live dealer call could not connect."));
+      }, timeoutMs);
+      connectResolveRef.current = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+    });
+
   /** Drive the whole call end-to-end. */
   const start = useCallback(async () => {
     setState("connecting");
@@ -125,10 +142,11 @@ export function useLiveCall(opts: {
       // WebRTC needs a mic (SDK requirement); silence it so we don't leak room noise.
       await navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => null);
 
-      await conversation.startSession({
+      conversation.startSession({
         conversationToken: t.token,
         connectionType: "webrtc",
       });
+      await waitForConnect();
 
       // Set output volume high; the SDK handles playback natively.
       try { await conversation.setVolume?.({ volume: 1.0 }); } catch { /* noop */ }

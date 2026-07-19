@@ -79,7 +79,7 @@ function LiveCallCardInner(props: LiveCallCardProps) {
 
   useEffect(() => {
     if (call.state === "error") props.onFail();
-  }, [call.state, props]);
+  }, [call.state, props.onFail]);
 
   return (
     <div className="rounded-2xl border border-primary/60 glow-ring p-4 bg-surface">
