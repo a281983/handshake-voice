@@ -66,10 +66,7 @@ function ConfirmPage() {
   //  3. navigates to /simulate, where the pipeline auto-runs hands-free
   const confirmAndRun = async () => {
     setBusy(true);
-    await supabase
-      .from("jobs")
-      .update({ job_spec: spec as unknown as never, stage: "spec_confirmed" })
-      .eq("id", jobId);
+    await confirmJobSpec({ data: { jobId, spec } });
     navigate({ to: "/simulate/$jobId", params: { jobId } });
   };
 
