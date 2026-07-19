@@ -219,15 +219,14 @@ export function usePipeline(jobId: string) {
     return n > 1000 ? n : null;
   };
 
-  /** Run ONE call: fetch the sim, then reveal turn-by-turn. Focused → TTS both sides. */
+  /** Run ONE call using an ALREADY-STARTED simulate promise, so the network
+   *  round-trip happens in parallel with narration instead of after it. */
   const runOne = useCallback(
-    async (id: string, r: 1 | 2, focused: boolean) => {
+    async (id: string, r: 1 | 2, focused: boolean, simPromise: Promise<SimResult>) => {
       if (focused) setActiveId(id);
       setView(r, id, { state: "on_call", turnsShown: 0, typing: null });
 
-      const res = (await simulate({
-        data: { jobId, dealerId: id, round: r },
-      })) as SimResult;
+      const res = await simPromise;
       setView(r, id, { result: res });
 
       const callerVoice = res.caller_voice_id;
@@ -239,7 +238,6 @@ export function usePipeline(jobId: string) {
         if (money) setView(r, id, { liveBottomLine: money });
 
         if (focused) {
-          // Start typing empty so the bubble appears immediately.
           setView(r, id, { typing: { index: i, text: "" } });
           try {
             const voiceId = turn.speaker === "caller" ? callerVoice : counterVoice;
@@ -253,9 +251,8 @@ export function usePipeline(jobId: string) {
             await speakAndType(turn.text, r, id, i, turn.speaker === "caller");
           }
         } else {
-          // Background: reveal without audio so multiple calls progress visibly in parallel.
           setView(r, id, { turnsShown: i + 1 });
-          await new Promise((rs) => setTimeout(rs, 420));
+          await new Promise((rs) => setTimeout(rs, 380));
         }
       }
       setView(r, id, {
@@ -263,22 +260,25 @@ export function usePipeline(jobId: string) {
         liveBottomLine: res.quote.bottom_line ?? null,
       });
     },
-    [jobId, simulate, synth],
+    [synth],
   );
 
 
-  /** Run a round: focus the first counterparty (audio), others in background. */
+  /** Run a round: prefetch ALL calls in parallel, focus first with audio. */
   const runRound = useCallback(
     async (r: 1 | 2, list: CounterpartyMeta[]) => {
       setRound(r);
-      // Background calls start immediately; the focused one is awaited so audio
-      // plays in order. All genuinely run.
+      // Kick off every simulate() immediately, in parallel. This is the
+      // difference between "click → wait → see text" and "click → see text".
+      const promises = list.map((c) =>
+        simulate({ data: { jobId, dealerId: c.id, round: r } }) as Promise<SimResult>,
+      );
       const [focus, ...rest] = list;
-      const bg = rest.map((c) => runOne(c.id, r, false));
-      await runOne(focus.id, r, true);
+      const bg = rest.map((c, i) => runOne(c.id, r, false, promises[i + 1]));
+      await runOne(focus.id, r, true, promises[0]);
       await Promise.all(bg);
     },
-    [runOne],
+    [jobId, simulate, runOne],
   );
 
   const start = useCallback(async () => {
