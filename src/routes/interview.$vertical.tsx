@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Mic, MicOff, Upload, ArrowRight, Loader2, Keyboard } from "lucide-react";
+import { Mic, MicOff, ArrowRight, Loader2, Keyboard } from "lucide-react";
 import { getVertical } from "@/lib/registry";
 import { createJob } from "@/lib/jobs.functions";
 
@@ -12,7 +12,6 @@ function InterviewPage() {
   const { vertical } = Route.useParams();
   const navigate = useNavigate();
   const cfg = getVertical(vertical);
-  const L = cfg.labels;
 
   const questions = cfg.interview.questions;
   const [step, setStep] = useState(0);
@@ -291,14 +290,6 @@ function InterviewPage() {
           <div className="mt-6 flex justify-center">
             <Loader2 className="h-5 w-5 text-primary animate-spin" />
           </div>
-        )}
-
-        {!busy && step === 0 && !voiceMode && (
-          <label className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-surface/50 p-3 text-xs text-muted-foreground hover:border-primary/40 cursor-pointer transition">
-            <Upload className="h-4 w-4" />
-            Or upload a listing / photo — same {L.quote_noun}
-            <input type="file" accept="image/*" className="hidden" />
-          </label>
         )}
       </div>
     </main>

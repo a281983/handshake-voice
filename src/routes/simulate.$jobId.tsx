@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Volume2, User, Store, Search, Handshake, Scale, ClipboardCheck, Phone, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Volume2, User, Store, Search, Handshake, Scale, ClipboardCheck, Phone, ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
 import { usePipeline, type Phase } from "@/lib/use-pipeline";
 
 
@@ -81,6 +81,15 @@ function SimulatePage() {
             })}
           </div>
         </div>
+
+        {p.settings && (
+          <div className="mt-3 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wide text-muted-foreground">
+            <SlidersHorizontal className="h-3 w-3 shrink-0" />
+            <span className="truncate">
+              Calling {p.settings.discovery_count} · negotiating top {p.settings.negotiate_top_n} · {p.settings.negotiation_style.replace(/_/g, " ")}
+            </span>
+          </div>
+        )}
 
         {p.error && (
           <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">

@@ -116,15 +116,11 @@ export const buildReport = createServerFn({ method: "POST" })
     const ranked = source
       .filter((q) => q.outcome !== "no_answer" && q.bottom_line != null)
       .slice()
-      .sort((a, b) => {
-        // Negotiated dealers always rank above un-negotiated openers — we
-        // called them back for a reason, and the report should reflect the
-        // deal we actually closed.
-        const an = negotiatedIds.has(a.dealer_id) ? 0 : 1;
-        const bn = negotiatedIds.has(b.dealer_id) ? 0 : 1;
-        if (an !== bn) return an - bn;
-        return (a.bottom_line ?? Infinity) - (b.bottom_line ?? Infinity);
-      })
+      // Rank purely by the money: the lowest final price is the best deal, full
+      // stop. A seller we negotiated only wins if it actually ended cheapest —
+      // no artificial "negotiated first" boost that could float a pricier
+      // number above a cheaper opener.
+      .sort((a, b) => (a.bottom_line ?? Infinity) - (b.bottom_line ?? Infinity))
       .map((q, i) => ({
         dealer_id: q.dealer_id,
         dealer_name: q.dealer_name,

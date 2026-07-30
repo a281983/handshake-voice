@@ -12,6 +12,7 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { getVertical } from "./registry";
+import { loadSettings } from "./settings.functions";
 import type { JobSpec } from "./types";
 
 export const discoverCounterparties = createServerFn({ method: "POST" })
@@ -29,6 +30,9 @@ export const discoverCounterparties = createServerFn({ method: "POST" })
 
     const cfg = getVertical(job.vertical);
     const spec = job.job_spec as JobSpec;
+    // Settings decide how many sellers we actually call this run.
+    const settings = await loadSettings(supabaseAdmin, cfg);
+    const selected = cfg.personas.slice(0, settings.discovery_count);
 
     // Build the Tavily query from the template + spec fields.
     let query = cfg.discovery.query_template;
@@ -65,12 +69,12 @@ export const discoverCounterparties = createServerFn({ method: "POST" })
       job_id: data.jobId,
       stage: "discovering",
       status: "done",
-      message: `Found ${totalFound} ${cfg.labels.counterparty_plural} near you. Selecting ${cfg.personas.length} to call.`,
+      message: `Found ${totalFound} ${cfg.labels.counterparty_plural} near you. Selecting ${selected.length} to call.`,
     });
 
     // Map selected slots to personas. In prod, demo_number_override would route
     // the real dial; here we display the persona names as the "selected" set.
-    for (const p of cfg.personas) {
+    for (const p of selected) {
       await supabaseAdmin.from("call_events").insert({
         job_id: data.jobId,
         stage: "discovering",
@@ -82,7 +86,7 @@ export const discoverCounterparties = createServerFn({ method: "POST" })
 
     // Store selected counterparties for the job.
     await supabaseAdmin.from("dealers").upsert(
-      cfg.personas.map((p) => ({
+      selected.map((p) => ({
         job_id: data.jobId,
         dealer_id: p.id,
         dealer_name: p.name,
@@ -113,7 +117,7 @@ export const discoverCounterparties = createServerFn({ method: "POST" })
     };
 
     return {
-      counterparties: cfg.personas.map((p) => ({
+      counterparties: selected.map((p) => ({
         id: p.id,
         name: p.name,
         style: p.style,
@@ -122,6 +126,7 @@ export const discoverCounterparties = createServerFn({ method: "POST" })
       })),
       demo_mode: cfg.demo_mode,
       labels: cfg.labels,
+      settings,
     };
   });
 

@@ -53,18 +53,24 @@ export function buildLeveragePacket(
     (q) => q.dealer_id !== targetDealerId && (q.bottom_line ?? 0) > 0,
   );
   const target = round1.find((q) => q.dealer_id === targetDealerId);
+  const targetOpening = target?.bottom_line ?? Infinity;
 
-  // Best rival by lowest bottom line.
+  // Best rival by lowest bottom line — but only usable as PRICE leverage when it
+  // is actually CHEAPER than this dealer's own opener. Citing a pricier rival
+  // ("my other quote is higher") is not leverage, so we drop it and let the
+  // brief lean on fees + the market benchmark instead.
   let best_rival: LeveragePacket["best_rival"] = null;
   if (others.length) {
     const b = others.reduce((a, c) =>
       (c.bottom_line ?? Infinity) < (a.bottom_line ?? Infinity) ? c : a,
     );
-    best_rival = {
-      dealer_id: b.dealer_id,
-      dealer_name: b.dealer_name,
-      bottom_line: b.bottom_line!,
-    };
+    if ((b.bottom_line ?? Infinity) < targetOpening) {
+      best_rival = {
+        dealer_id: b.dealer_id,
+        dealer_name: b.dealer_name,
+        bottom_line: b.bottom_line!,
+      };
+    }
   }
 
   // What is each rival charging? (labels only — used to shame this dealer's fees)
@@ -99,7 +105,6 @@ export function buildLeveragePacket(
   // ask and trips the red flag. This handles the already-cheapest dealer: its
   // rival is pricier, so we push it down from its own opening, not up toward the
   // rival.
-  const targetOpening = target?.bottom_line ?? Infinity;
   const rivalAnchor = best_rival?.bottom_line ?? Infinity;
   const anchor = Math.min(targetOpening, rivalAnchor);
   const target_bottom_line = Number.isFinite(anchor)
@@ -132,7 +137,7 @@ export function leverageBrief(cfg: VerticalConfig, packet: LeveragePacket): stri
     );
   } else {
     lines.push(
-      `You do not yet have a competing ${L.quote_noun}. Push on fees and the market benchmark instead.`,
+      `No rival came in cheaper than this ${L.counterparty}, so do NOT cite a competing price — you'd only be quoting a higher number. Win on fees and the market benchmark instead.`,
     );
   }
 

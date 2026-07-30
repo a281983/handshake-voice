@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { simulateCall, synthesizeTurn } from "@/lib/simulate-call.functions";
 import { discoverCounterparties, setJobStage } from "@/lib/discovery.functions";
 import { runEval, buildReport } from "@/lib/eval-report.functions";
+import type { HandshakeSettings } from "@/lib/settings.functions";
 
 
 export type Turn = { speaker: "caller" | "counterparty"; text: string };
@@ -66,6 +67,8 @@ export function usePipeline(jobId: string) {
   const [awaitingContinue, setAwaitingContinue] = useState(false);
   const continueRef = useRef<(() => void) | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [settings, setSettings] = useState<HandshakeSettings | null>(null);
+  const settingsRef = useRef<HandshakeSettings | null>(null);
 
 
   // Browser TTS narrator between phases — prefer a female voice for "Sarah" (the assistant).
@@ -223,31 +226,68 @@ export function usePipeline(jobId: string) {
       }
     });
 
-  /** Extract any dollar figure mentioned in a turn (for the live count-down). */
-  const extractMoney = (text: string): number | null => {
-    const m = text.match(/\$?\s?(\d{1,3}(?:,\d{3})+|\d{4,6})/);
-    if (!m) return null;
-    const n = Number(m[1].replace(/,/g, ""));
-    return n > 1000 ? n : null;
+  /** All dollar figures >= $1,000 in a turn, left to right (for the live ticker). */
+  const moneyIn = (text: string): number[] => {
+    const out: number[] = [];
+    const re = /\$?\s?(\d{1,3}(?:,\d{3})+|\d{4,6})/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      const n = Number(m[1].replace(/,/g, ""));
+      if (n >= 1000) out.push(n);
+    }
+    return out;
   };
 
   /** Run ONE call using an ALREADY-STARTED simulate promise, so the network
    *  round-trip happens in parallel with narration instead of after it. */
   const runOne = useCallback(
-    async (id: string, r: 1 | 2, focused: boolean, simPromise: Promise<SimResult>) => {
+    async (id: string, r: 1 | 2, focused: boolean, simPromise: Promise<SimResult>): Promise<SimResult> => {
       if (focused) setActiveId(id);
       setView(r, id, { state: "on_call", turnsShown: 0, typing: null });
 
-      const res = await simPromise;
+      // First attempt uses the prefetched promise; on a no-answer (or transient
+      // error) we "call back" up to max_callbacks times, per the settings.
+      const maxCallbacks = settingsRef.current?.max_callbacks ?? 0;
+      let res: SimResult | null = null;
+      for (let attempt = 0; ; attempt++) {
+        try {
+          res =
+            attempt === 0
+              ? await simPromise
+              : ((await simulate({ data: { jobId, dealerId: id, round: r } })) as SimResult);
+        } catch (e) {
+          if (attempt >= maxCallbacks) throw e;
+          await new Promise((rs) => setTimeout(rs, 400));
+          continue;
+        }
+        if (res.quote?.outcome === "no_answer" && attempt < maxCallbacks) {
+          setNarration(`No answer — calling ${res.persona.name} back (${attempt + 1}/${maxCallbacks})…`);
+          await new Promise((rs) => setTimeout(rs, 500));
+          continue;
+        }
+        break;
+      }
+      if (!res) throw new Error("call produced no result");
       setView(r, id, { result: res });
 
       const callerVoice = res.caller_voice_id;
       const counterVoice = res.persona.voice_id;
 
+      let seenMax = 0;
       for (let i = 0; i < res.turns.length; i++) {
         const turn = res.turns[i];
-        const money = extractMoney(turn.text);
-        if (money) setView(r, id, { liveBottomLine: money });
+        // Live ticker: only the counterparty's numbers, and only "total-shaped"
+        // ones (largest in the turn, >= 60% of the biggest total seen so far).
+        // Shows the out-the-door falling in Round 2 without a stray fee flashing
+        // as the price.
+        if (turn.speaker === "counterparty") {
+          const nums = moneyIn(turn.text);
+          if (nums.length) {
+            const largest = Math.max(...nums);
+            if (largest >= seenMax * 0.6) setView(r, id, { liveBottomLine: largest });
+            if (largest > seenMax) seenMax = largest;
+          }
+        }
 
         if (focused) {
           setView(r, id, { typing: { index: i, text: "" } });
@@ -271,14 +311,19 @@ export function usePipeline(jobId: string) {
         state: "done",
         liveBottomLine: res.quote.bottom_line ?? null,
       });
+      return res;
     },
-    [synth],
+    [synth, simulate, jobId],
   );
 
 
-  /** Run a round: prefetch ALL calls in parallel, focus first with audio. */
+  /** Run a round: prefetch ALL calls in parallel, focus first with audio.
+   *  Returns each seller's captured bottom line, in the input order. */
   const runRound = useCallback(
-    async (r: 1 | 2, list: CounterpartyMeta[]) => {
+    async (
+      r: 1 | 2,
+      list: CounterpartyMeta[],
+    ): Promise<Array<{ id: string; name: string; bottomLine: number | null }>> => {
       setRound(r);
       // Kick off every simulate() immediately, in parallel. This is the
       // difference between "click → wait → see text" and "click → see text".
@@ -286,9 +331,19 @@ export function usePipeline(jobId: string) {
         simulate({ data: { jobId, dealerId: c.id, round: r } }) as Promise<SimResult>,
       );
       const [focus, ...rest] = list;
-      const bg = rest.map((c, i) => runOne(c.id, r, false, promises[i + 1]));
-      await runOne(focus.id, r, true, promises[0]);
+      const results = new Array<SimResult | null>(list.length).fill(null);
+      const bg = rest.map((c, i) =>
+        runOne(c.id, r, false, promises[i + 1])
+          .then((res) => { results[i + 1] = res; })
+          .catch(() => { results[i + 1] = null; }),
+      );
+      results[0] = await runOne(focus.id, r, true, promises[0]);
       await Promise.all(bg);
+      return list.map((c, i) => ({
+        id: c.id,
+        name: c.name,
+        bottomLine: results[i]?.quote?.bottom_line ?? null,
+      }));
     },
     [jobId, simulate, runOne],
   );
@@ -313,9 +368,12 @@ export function usePipeline(jobId: string) {
       const disc = (await discover({ data: { jobId } })) as {
         counterparties: CounterpartyMeta[];
         labels: { bottom_line: string; counterparty_plural: string };
+        settings: HandshakeSettings;
       };
       setCounterparties(disc.counterparties);
       setLabels(disc.labels);
+      settingsRef.current = disc.settings;
+      setSettings(disc.settings);
       await narrate(
         `Hi ${clientName}, welcome to Handshake. I found ${disc.counterparties.length} ${disc.labels.counterparty_plural} nearby. These are the ones I'm going to call for quotes.`,
       );
@@ -326,23 +384,24 @@ export function usePipeline(jobId: string) {
       const firstQuoteDealer = disc.counterparties[0]?.name ?? "the first dealer";
       await narrate(`Getting quotes now, ${clientName}. I'm calling ${firstQuoteDealer} first — the others are on the line in parallel.`);
       await narrate(`Listen in — Laura, my calling agent, is on the line with ${firstQuoteDealer} right now.`);
-      await runRound(1, disc.counterparties);
+      const round1Results = await runRound(1, disc.counterparties);
       setNarration(null);
 
-
-      // Read back a summary of ALL three quotes and pick the negotiation target.
-      const quoteSummary = disc.counterparties.map((c) => {
-        const v = views[key(1, c.id)];
-        const bl = v?.result?.quote?.bottom_line ?? v?.liveBottomLine ?? null;
-        return { name: c.name, id: c.id, bl };
-      });
-      const priced = quoteSummary.filter((q) => q.bl != null) as { name: string; id: string; bl: number }[];
-      priced.sort((a, b) => a.bl - b.bl);
+      // Rank the openers by the REAL captured bottom lines (returned from the
+      // round — never read from `views` state, which is stale inside this
+      // long-running closure). This is what picks the negotiation targets.
+      const priced = round1Results
+        .filter(
+          (q): q is { id: string; name: string; bottomLine: number } => q.bottomLine != null,
+        )
+        .sort((a, b) => a.bottomLine - b.bottomLine);
       const cheapest = priced[0];
       if (priced.length) {
-        const summaryParts = priced.map((q) => `${q.name} came in at $${q.bl.toLocaleString()}`).join("; ");
+        const summaryParts = priced
+          .map((q) => `${q.name} came in at $${q.bottomLine.toLocaleString()}`)
+          .join("; ");
         const bridge = cheapest
-          ? ` The best opener is ${cheapest.name}. I'm going to call them back and squeeze harder on the fees.`
+          ? ` The best opener is ${cheapest.name}. Time to call ${priced.length > 1 ? "the top sellers" : "them"} back and squeeze the fees.`
           : "";
         await narrate(`Here's what we heard, ${clientName}: ${summaryParts}.${bridge}`);
       } else {
@@ -353,19 +412,25 @@ export function usePipeline(jobId: string) {
       setPhase("leverage");
       await setStage({ data: { jobId, stage: "building_leverage" } });
 
-      // 4. Negotiation round — ONLY with the cheapest opener, so the final
-      // recommendation is the dealer we actually negotiated against. Others
-      // stay at their round-1 quote and are shown for comparison.
+      // 4. Negotiation round — call back the N cheapest openers (per settings)
+      // and genuinely negotiate each. The report then ranks by price, so the
+      // winner is a real deal we closed, apples-to-apples.
       setPhase("negotiating");
       await setStage({ data: { jobId, stage: "negotiation_round" } });
-      const negoDealer = cheapest
-        ? disc.counterparties.find((c) => c.id === cheapest.id) ?? disc.counterparties[0]
-        : disc.counterparties[0];
-      const negoTarget = negoDealer?.name ?? "the top dealer";
-      await narrate(`Calling ${negoTarget} back to negotiate for you, ${clientName}. Listen in — Laura's going to squeeze every fee she can.`);
-      await runRound(2, [negoDealer]);
-      await narrate(`Negotiation wrapped, ${clientName}. Locking in the numbers and putting your final recommendation together now.`);
-
+      const topN = Math.max(1, disc.settings.negotiate_top_n);
+      const negoList = (priced.length ? priced : round1Results)
+        .slice(0, topN)
+        .map((q) => disc.counterparties.find((c) => c.id === q.id))
+        .filter((c): c is CounterpartyMeta => Boolean(c));
+      if (negoList.length) {
+        const negoNames =
+          negoList.length === 1
+            ? negoList[0].name
+            : negoList.slice(0, -1).map((c) => c.name).join(", ") + " and " + negoList[negoList.length - 1].name;
+        await narrate(`Calling ${negoNames} back to negotiate for you, ${clientName}. Listen in — Laura's going to squeeze every fee she can.`);
+        await runRound(2, negoList);
+        await narrate(`Negotiation wrapped, ${clientName}. Locking in the numbers and putting your final recommendation together now.`);
+      }
       setNarration(null);
 
 
@@ -382,7 +447,7 @@ export function usePipeline(jobId: string) {
       setError(e instanceof Error ? e.message : String(e));
       running.current = false;
     }
-  }, [jobId, discover, runRound, doEval, doReport, setStage, views]);
+  }, [jobId, discover, runRound, doEval, doReport, setStage]);
 
   const stopAudio = () => {
     audioRef.current?.pause();
@@ -393,7 +458,7 @@ export function usePipeline(jobId: string) {
 
   return {
     phase, round, counterparties, activeId, views, labels, error,
-    narration, awaitingContinue, continueNow,
+    narration, awaitingContinue, continueNow, settings,
     start, stopAudio, key,
   };
 }
