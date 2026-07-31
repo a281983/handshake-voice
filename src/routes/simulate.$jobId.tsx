@@ -95,6 +95,47 @@ function SimulatePage() {
           </div>
         )}
 
+        {p.phase === "leverage" && (
+          <div className="mt-4 space-y-3">
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm text-primary/90">
+              Comparing quotes and profiling each seller's negotiating style from what they said on the call.
+            </div>
+            {p.assessments.map((a) => (
+              <div
+                key={a.dealer_id}
+                className={`rounded-2xl border p-3 ${a.selected ? "border-primary/60 bg-primary/5" : "border-border bg-surface opacity-80"}`}
+              >
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium flex-1 truncate">{a.dealer_name}</p>
+                  {a.bottom_line != null && (
+                    <span className="text-sm font-semibold tabular-nums">${a.bottom_line.toLocaleString()}</span>
+                  )}
+                </div>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <Brain className="h-3 w-3" /> {a.persona}
+                  </span>
+                  <span className={`text-[10px] uppercase tracking-wide ${a.selected ? "text-primary" : "text-muted-foreground"}`}>
+                    {a.selected ? "Calling back" : "Not shortlisted"}
+                  </span>
+                </div>
+                <p className="mt-2 text-[12px] text-muted-foreground leading-snug">{a.evidence}</p>
+                {a.selected && (
+                  <p className="mt-1 text-[12px] text-foreground/80 leading-snug">
+                    <span className="text-primary">Strategy:</span> {a.strategy}
+                  </p>
+                )}
+              </div>
+            ))}
+            {p.assessments.length === 0 && (
+              <div className="rounded-2xl border border-border bg-surface p-6 text-center">
+                <Loader2 className="h-5 w-5 text-primary animate-spin mx-auto" />
+                <p className="mt-3 text-sm text-muted-foreground">Analyzing the calls…</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {p.awaitingContinue && (
           <button
             onClick={p.continueNow}
@@ -104,15 +145,14 @@ function SimulatePage() {
           </button>
         )}
 
-        {p.phase === "leverage" && (
-          <div className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm text-primary/90">
-            Ranking the quotes and arming the best competing offer as leverage…
-          </div>
-        )}
-
         {/* Counterparty call cards — focused big, others collapsed */}
         <div className="mt-5 space-y-3">
           {p.counterparties
+            .filter((c) =>
+              p.phase === "negotiating" && p.negotiationIds.length
+                ? p.negotiationIds.includes(c.id)
+                : true,
+            )
             .slice()
             .sort((a, b) => {
               // Focused first, then others
@@ -120,6 +160,7 @@ function SimulatePage() {
               if (p.activeId === b.id) return 1;
               return 0;
             })
+
             .map((c) => {
             const k = p.key(p.round, c.id);
             const view = p.views[k];
