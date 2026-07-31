@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Volume2, User, Store, Search, Handshake, Scale, ClipboardCheck, Phone, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Volume2, User, Store, Search, Handshake, Scale, ClipboardCheck, Phone, ChevronDown, ChevronUp, Brain } from "lucide-react";
 import { usePipeline, type Phase } from "@/lib/use-pipeline";
 
 
@@ -12,7 +12,7 @@ const PHASE_META: Record<Phase, { text: string; sub: string; Icon: typeof Search
   idle:        { text: "Getting ready",        sub: "—",               Icon: Search },
   discovering: { text: "Finding sellers near you", sub: "Discovery",   Icon: Search },
   quoting:     { text: "Getting quotes",       sub: "Round 1 of 2",    Icon: Store },
-  leverage:    { text: "Building leverage",    sub: "Ranking offers",  Icon: Scale },
+  leverage:    { text: "Comparing quotes",     sub: "Profiling sellers",Icon: Scale },
   negotiating: { text: "Negotiating",          sub: "Round 2 of 2",    Icon: Handshake },
   finalizing:  { text: "Checking the numbers", sub: "Independent eval",Icon: ClipboardCheck },
   done:        { text: "Done",                 sub: "Complete",        Icon: ClipboardCheck },
