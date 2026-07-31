@@ -231,6 +231,9 @@ export function usePipeline(jobId: string) {
     return n > 1000 ? n : null;
   };
 
+  /** Results collected this run (avoids stale `views` state in the orchestrator). */
+  const resultsRef = useRef<Record<string, SimResult>>({});
+
   /** Run ONE call using an ALREADY-STARTED simulate promise, so the network
    *  round-trip happens in parallel with narration instead of after it. */
   const runOne = useCallback(
@@ -239,6 +242,7 @@ export function usePipeline(jobId: string) {
       setView(r, id, { state: "on_call", turnsShown: 0, typing: null });
 
       const res = await simPromise;
+      resultsRef.current[`${r}:${id}`] = res;
       setView(r, id, { result: res });
 
       const callerVoice = res.caller_voice_id;
@@ -271,12 +275,13 @@ export function usePipeline(jobId: string) {
         state: "done",
         liveBottomLine: res.quote.bottom_line ?? null,
       });
+      return res;
     },
     [synth],
   );
 
 
-  /** Run a round: prefetch ALL calls in parallel, focus first with audio. */
+  /** Quote round: prefetch ALL calls in parallel, focus the first with audio. */
   const runRound = useCallback(
     async (r: 1 | 2, list: CounterpartyMeta[]) => {
       setRound(r);
@@ -292,6 +297,22 @@ export function usePipeline(jobId: string) {
     },
     [jobId, simulate, runOne],
   );
+
+  /** Negotiation round: every shortlisted dealer is played out loud, one after
+   *  the other, so the user hears each negotiation in full. */
+  const runNegotiationRound = useCallback(
+    async (list: CounterpartyMeta[]) => {
+      setRound(2);
+      const promises = list.map((c) =>
+        simulate({ data: { jobId, dealerId: c.id, round: 2 } }) as Promise<SimResult>,
+      );
+      for (let i = 0; i < list.length; i++) {
+        await runOne(list[i].id, 2, true, promises[i]);
+      }
+    },
+    [jobId, simulate, runOne],
+  );
+
 
   const start = useCallback(async () => {
     if (running.current) return;
