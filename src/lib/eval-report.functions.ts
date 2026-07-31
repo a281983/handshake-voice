@@ -101,36 +101,39 @@ export const buildReport = createServerFn({ method: "POST" })
     const round1 = all.filter((q) => q.round === 1);
     const round2 = all.filter((q) => q.round === 2);
 
-    // Build the ranking from the LATEST quote per dealer: if we negotiated
-    // with them (round 2 exists) use that number; otherwise fall back to their
-    // opening round-1 quote. This guarantees the dealer we actually negotiated
-    // with is scored on their negotiated bottom line — not compared against
-    // other dealers' round-2 numbers that never happened.
-    const latestByDealer = new Map<string, Quote>();
-    for (const q of round1) latestByDealer.set(q.dealer_id, q);
-    for (const q of round2) latestByDealer.set(q.dealer_id, q);
-    const source = Array.from(latestByDealer.values());
+    // Build the ranking from the BEST quote per dealer: if we negotiated with
+    // them, that's the negotiated number (and a negotiation can never make a
+    // dealer more expensive than their own opener, so we take the lower of the
+    // two). Dealers we didn't call back keep their round-1 opener. The ranking
+    // is then strictly by price, so the recommended deal is always the lowest
+    // number on the page.
+    const bestByDealer = new Map<string, Quote>();
+    for (const q of [...round1, ...round2]) {
+      if (q.bottom_line == null) continue;
+      const prev = bestByDealer.get(q.dealer_id);
+      if (!prev || (prev.bottom_line ?? Infinity) > q.bottom_line) {
+        bestByDealer.set(q.dealer_id, q);
+      }
+    }
+    // Keep dealers that never produced a number (so outcome filtering still works).
+    for (const q of [...round1, ...round2]) {
+      if (!bestByDealer.has(q.dealer_id)) bestByDealer.set(q.dealer_id, q);
+    }
+    const source = Array.from(bestByDealer.values());
 
     const negotiatedIds = new Set(round2.map((q) => q.dealer_id));
 
     const ranked = source
       .filter((q) => q.outcome !== "no_answer" && q.bottom_line != null)
       .slice()
-      .sort((a, b) => {
-        // Negotiated dealers always rank above un-negotiated openers — we
-        // called them back for a reason, and the report should reflect the
-        // deal we actually closed.
-        const an = negotiatedIds.has(a.dealer_id) ? 0 : 1;
-        const bn = negotiatedIds.has(b.dealer_id) ? 0 : 1;
-        if (an !== bn) return an - bn;
-        return (a.bottom_line ?? Infinity) - (b.bottom_line ?? Infinity);
-      })
+      .sort((a, b) => (a.bottom_line ?? Infinity) - (b.bottom_line ?? Infinity))
       .map((q, i) => ({
         dealer_id: q.dealer_id,
         dealer_name: q.dealer_name,
         final_bottom_line: q.bottom_line ?? 0,
         rank: i + 1,
       }));
+
 
     const winner = ranked[0] ?? null;
     const highest = ranked[ranked.length - 1] ?? null;

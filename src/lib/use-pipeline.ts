@@ -13,7 +13,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { simulateCall, synthesizeTurn } from "@/lib/simulate-call.functions";
 import { discoverCounterparties, setJobStage } from "@/lib/discovery.functions";
+import { assessPersonas, type PersonaAssessment } from "@/lib/assess.functions";
 import { runEval, buildReport } from "@/lib/eval-report.functions";
+
 
 
 export type Turn = { speaker: "caller" | "counterparty"; text: string };
@@ -51,10 +53,12 @@ export function usePipeline(jobId: string) {
   const simulate = useServerFn(simulateCall);
   
   const discover = useServerFn(discoverCounterparties);
+  const assess = useServerFn(assessPersonas);
   const doEval = useServerFn(runEval);
   const doReport = useServerFn(buildReport);
   const setStage = useServerFn(setJobStage);
   const synth = useServerFn(synthesizeTurn);
+
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [round, setRound] = useState<1 | 2>(1);
@@ -63,6 +67,9 @@ export function usePipeline(jobId: string) {
   const [views, setViews] = useState<Record<string, CallView>>({});
   const [labels, setLabels] = useState<{ bottom_line: string; counterparty_plural: string } | null>(null);
   const [narration, setNarration] = useState<string | null>(null);
+  const [assessments, setAssessments] = useState<PersonaAssessment[]>([]);
+  const [negotiationIds, setNegotiationIds] = useState<string[]>([]);
+
   const [awaitingContinue, setAwaitingContinue] = useState(false);
   const continueRef = useRef<(() => void) | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -231,6 +238,9 @@ export function usePipeline(jobId: string) {
     return n > 1000 ? n : null;
   };
 
+  /** Results collected this run (avoids stale `views` state in the orchestrator). */
+  const resultsRef = useRef<Record<string, SimResult>>({});
+
   /** Run ONE call using an ALREADY-STARTED simulate promise, so the network
    *  round-trip happens in parallel with narration instead of after it. */
   const runOne = useCallback(
@@ -239,6 +249,7 @@ export function usePipeline(jobId: string) {
       setView(r, id, { state: "on_call", turnsShown: 0, typing: null });
 
       const res = await simPromise;
+      resultsRef.current[`${r}:${id}`] = res;
       setView(r, id, { result: res });
 
       const callerVoice = res.caller_voice_id;
@@ -271,12 +282,13 @@ export function usePipeline(jobId: string) {
         state: "done",
         liveBottomLine: res.quote.bottom_line ?? null,
       });
+      return res;
     },
     [synth],
   );
 
 
-  /** Run a round: prefetch ALL calls in parallel, focus first with audio. */
+  /** Quote round: prefetch ALL calls in parallel, focus the first with audio. */
   const runRound = useCallback(
     async (r: 1 | 2, list: CounterpartyMeta[]) => {
       setRound(r);
@@ -292,6 +304,22 @@ export function usePipeline(jobId: string) {
     },
     [jobId, simulate, runOne],
   );
+
+  /** Negotiation round: every shortlisted dealer is played out loud, one after
+   *  the other, so the user hears each negotiation in full. */
+  const runNegotiationRound = useCallback(
+    async (list: CounterpartyMeta[]) => {
+      setRound(2);
+      const promises = list.map((c) =>
+        simulate({ data: { jobId, dealerId: c.id, round: 2 } }) as Promise<SimResult>,
+      );
+      for (let i = 0; i < list.length; i++) {
+        await runOne(list[i].id, 2, true, promises[i]);
+      }
+    },
+    [jobId, simulate, runOne],
+  );
+
 
   const start = useCallback(async () => {
     if (running.current) return;
@@ -330,40 +358,53 @@ export function usePipeline(jobId: string) {
       setNarration(null);
 
 
-      // Read back a summary of ALL three quotes and pick the negotiation target.
+      // Read back a summary of ALL quotes.
       const quoteSummary = disc.counterparties.map((c) => {
-        const v = views[key(1, c.id)];
-        const bl = v?.result?.quote?.bottom_line ?? v?.liveBottomLine ?? null;
+        const bl = resultsRef.current[key(1, c.id)]?.quote?.bottom_line ?? null;
         return { name: c.name, id: c.id, bl };
       });
       const priced = quoteSummary.filter((q) => q.bl != null) as { name: string; id: string; bl: number }[];
       priced.sort((a, b) => a.bl - b.bl);
-      const cheapest = priced[0];
       if (priced.length) {
         const summaryParts = priced.map((q) => `${q.name} came in at $${q.bl.toLocaleString()}`).join("; ");
-        const bridge = cheapest
-          ? ` The best opener is ${cheapest.name}. I'm going to call them back and squeeze harder on the fees.`
-          : "";
-        await narrate(`Here's what we heard, ${clientName}: ${summaryParts}.${bridge}`);
+        await narrate(`Here's what we heard, ${clientName}: ${summaryParts}.`);
       } else {
-        await narrate(`${clientName}, the quotes are in. Starting negotiations.`);
+        await narrate(`${clientName}, the quotes are in.`);
       }
 
-      // 3. Leverage (brief — no separate wait, this feels like one flow now)
+      // 3. Comparison break — profile each dealer's persona from what they
+      // actually said, shortlist who's worth a callback, and pause so the
+      // user can see the reasoning before we dial again.
       setPhase("leverage");
       await setStage({ data: { jobId, stage: "building_leverage" } });
+      let shortlist: CounterpartyMeta[] = [];
+      try {
+        const a = (await assess({ data: { jobId } })) as { assessments: PersonaAssessment[] };
+        setAssessments(a.assessments);
+        shortlist = a.assessments
+          .filter((x) => x.selected)
+          .map((x) => disc.counterparties.find((c) => c.id === x.dealer_id))
+          .filter(Boolean) as CounterpartyMeta[];
+      } catch { /* fall back below */ }
+      if (!shortlist.length) {
+        shortlist = priced
+          .slice(0, 2)
+          .map((p) => disc.counterparties.find((c) => c.id === p.id))
+          .filter(Boolean) as CounterpartyMeta[];
+      }
+      if (!shortlist.length) shortlist = disc.counterparties.slice(0, 1);
+      setNegotiationIds(shortlist.map((c) => c.id));
 
-      // 4. Negotiation round — ONLY with the cheapest opener, so the final
-      // recommendation is the dealer we actually negotiated against. Others
-      // stay at their round-1 quote and are shown for comparison.
+      await narrate(
+        `Now I'm comparing the quotes and reading each ${disc.labels.counterparty_plural.replace(/s$/, "")}'s negotiating style from the calls. Based on their numbers and their tactics, I'll negotiate with ${shortlist.map((c) => c.name).join(" and ")}.`,
+      );
+      await waitForContinue();
+
+      // 4. Negotiation round — only the shortlisted dealers, each played live.
       setPhase("negotiating");
       await setStage({ data: { jobId, stage: "negotiation_round" } });
-      const negoDealer = cheapest
-        ? disc.counterparties.find((c) => c.id === cheapest.id) ?? disc.counterparties[0]
-        : disc.counterparties[0];
-      const negoTarget = negoDealer?.name ?? "the top dealer";
-      await narrate(`Calling ${negoTarget} back to negotiate for you, ${clientName}. Listen in — Laura's going to squeeze every fee she can.`);
-      await runRound(2, [negoDealer]);
+      await narrate(`Calling ${shortlist.map((c) => c.name).join(" and ")} back to negotiate for you, ${clientName}. Listen in — Laura's going to squeeze every fee she can.`);
+      await runNegotiationRound(shortlist);
       await narrate(`Negotiation wrapped, ${clientName}. Locking in the numbers and putting your final recommendation together now.`);
 
       setNarration(null);
@@ -382,7 +423,8 @@ export function usePipeline(jobId: string) {
       setError(e instanceof Error ? e.message : String(e));
       running.current = false;
     }
-  }, [jobId, discover, runRound, doEval, doReport, setStage, views]);
+  }, [jobId, discover, runRound, runNegotiationRound, assess, doEval, doReport, setStage]);
+
 
   const stopAudio = () => {
     audioRef.current?.pause();
@@ -394,7 +436,9 @@ export function usePipeline(jobId: string) {
   return {
     phase, round, counterparties, activeId, views, labels, error,
     narration, awaitingContinue, continueNow,
+    assessments, negotiationIds,
     start, stopAudio, key,
   };
+
 }
 

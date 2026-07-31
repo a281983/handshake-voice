@@ -114,12 +114,15 @@ export type VerticalConfig = {
     min_turns: number;
     max_turns: number;
     model: string;
+    /** How many dealers we actually negotiate with in round 2 (default 2). */
+    negotiate_count?: number;
     /** Per-round overrides. Round 2 defaults shorter so negotiation stays punchy. */
     round1_min_turns?: number;
     round1_max_turns?: number;
     round2_min_turns?: number;
     round2_max_turns?: number;
   };
+
 };
 
 // ── Runtime data shapes ──────────────────────────────────────────────────────
