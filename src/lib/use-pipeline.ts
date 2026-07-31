@@ -436,7 +436,9 @@ export function usePipeline(jobId: string) {
   return {
     phase, round, counterparties, activeId, views, labels, error,
     narration, awaitingContinue, continueNow,
+    assessments, negotiationIds,
     start, stopAudio, key,
   };
+
 }
 
