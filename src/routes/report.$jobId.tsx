@@ -157,6 +157,11 @@ function ReportPage() {
               const after = entry.final_bottom_line;
               const drop = before != null ? before - after : 0;
               const q2 = r2(entry.dealer_id);
+              // Fall back to the round-1 call for dealers we didn't negotiate
+              // with, so every row has an itemized breakdown + transcript.
+              const detail = q2 ?? r1(entry.dealer_id);
+              const items = detail?.line_items ?? [];
+              const negotiated = !!q2;
               const isOpen = open === entry.dealer_id;
               return (
                 <div key={entry.dealer_id} className="rounded-2xl border border-border bg-surface overflow-hidden">
@@ -169,9 +174,13 @@ function ReportPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{entry.dealer_name}</p>
-                      {drop > 0 && (
+                      {drop > 0 ? (
                         <p className="text-[11px] text-success">
                           ${before!.toLocaleString()} → ${after.toLocaleString()} · saved ${drop.toLocaleString()}
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground">
+                          {negotiated ? "Negotiated" : "Opening quote only"}
                         </p>
                       )}
                     </div>
@@ -182,11 +191,13 @@ function ReportPage() {
                   {isOpen && (
                     <div className="px-4 pb-4 border-t border-border pt-3 space-y-3">
                       {/* Itemized fees */}
-                      {q2?.line_items && q2.line_items.length > 0 && (
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">Itemized</p>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">
+                          Itemized · {negotiated ? "after negotiation" : "opening quote"}
+                        </p>
+                        {items.length > 0 ? (
                           <div className="space-y-1">
-                            {q2.line_items.map((li, i) => (
+                            {items.map((li, i) => (
                               <div key={i} className="flex justify-between text-[13px]">
                                 <span className="text-muted-foreground">{li.label}</span>
                                 <span className="tabular-nums">${li.amount.toLocaleString()}</span>
@@ -197,19 +208,30 @@ function ReportPage() {
                               <span className="tabular-nums">${after.toLocaleString()}</span>
                             </div>
                           </div>
-                        </div>
-                      )}
+                        ) : (
+                          <div className="flex justify-between text-[13px] font-semibold">
+                            <span>{L.bottom_line}</span>
+                            <span className="tabular-nums">${after.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {detail?.add_ons_declined && detail.add_ons_declined.length > 0 && (
+                          <p className="mt-2 text-[11px] text-muted-foreground">
+                            Declined / waived: {detail.add_ons_declined.join(", ")}
+                          </p>
+                        )}
+                      </div>
                       {/* Transcript */}
-                      {q2?.transcript && (
+                      {detail?.transcript && (
                         <details>
                           <summary className="text-[11px] text-primary cursor-pointer">View call transcript</summary>
                           <pre className="mt-2 text-[11px] text-muted-foreground whitespace-pre-wrap font-sans leading-relaxed max-h-56 overflow-y-auto">
-                            {q2.transcript}
+                            {detail.transcript}
                           </pre>
                         </details>
                       )}
                     </div>
                   )}
+
                 </div>
               );
             })}
