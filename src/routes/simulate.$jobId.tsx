@@ -188,7 +188,12 @@ function SimulatePage() {
                   <div className="flex-1 min-w-0">
                     <p className={`font-medium truncate ${isFocus ? "text-sm" : "text-[13px]"}`}>{c.name}</p>
                     <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground truncate">
-                      <span>{p.round === 1 ? "Quote call" : "Negotiation"} · {c.style.replace(/_/g, " ")}</span>
+                      <span>
+                        {p.round === 1
+                          ? "Quote call"
+                          : `Negotiation · ${p.assessments.find((a) => a.dealer_id === c.id)?.persona ?? c.style.replace(/_/g, " ")}`}
+                      </span>
+
                       {c.phone && (
                         <span className="inline-flex items-center gap-1 normal-case tracking-normal text-[11px] text-foreground/70">
                           <Phone className="h-3 w-3" /> {c.phone}
