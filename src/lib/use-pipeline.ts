@@ -13,7 +13,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { simulateCall, synthesizeTurn } from "@/lib/simulate-call.functions";
 import { discoverCounterparties, setJobStage } from "@/lib/discovery.functions";
+import { assessPersonas, type PersonaAssessment } from "@/lib/assess.functions";
 import { runEval, buildReport } from "@/lib/eval-report.functions";
+
 
 
 export type Turn = { speaker: "caller" | "counterparty"; text: string };
@@ -51,10 +53,12 @@ export function usePipeline(jobId: string) {
   const simulate = useServerFn(simulateCall);
   
   const discover = useServerFn(discoverCounterparties);
+  const assess = useServerFn(assessPersonas);
   const doEval = useServerFn(runEval);
   const doReport = useServerFn(buildReport);
   const setStage = useServerFn(setJobStage);
   const synth = useServerFn(synthesizeTurn);
+
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [round, setRound] = useState<1 | 2>(1);
