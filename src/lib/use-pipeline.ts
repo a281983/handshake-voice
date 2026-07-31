@@ -64,8 +64,6 @@ export function usePipeline(jobId: string) {
   const [views, setViews] = useState<Record<string, CallView>>({});
   const [labels, setLabels] = useState<{ bottom_line: string; counterparty_plural: string } | null>(null);
   const [narration, setNarration] = useState<string | null>(null);
-  const [awaitingContinue, setAwaitingContinue] = useState(false);
-  const continueRef = useRef<(() => void) | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [settings, setSettings] = useState<HandshakeSettings | null>(null);
   const settingsRef = useRef<HandshakeSettings | null>(null);
@@ -105,18 +103,6 @@ export function usePipeline(jobId: string) {
         window.speechSynthesis.speak(u);
       } catch { resolve(); }
     });
-
-  const waitForContinue = () =>
-    new Promise<void>((resolve) => {
-      setAwaitingContinue(true);
-      continueRef.current = () => {
-        setAwaitingContinue(false);
-        continueRef.current = null;
-        resolve();
-      };
-    });
-
-  const continueNow = () => continueRef.current?.();
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const running = useRef(false);
@@ -388,25 +374,14 @@ export function usePipeline(jobId: string) {
       setNarration(null);
 
       // Rank the openers by the REAL captured bottom lines (returned from the
-      // round — never read from `views` state, which is stale inside this
-      // long-running closure). This is what picks the negotiation targets.
+      // round). This picks the negotiation targets. We deliberately DON'T read
+      // the prices back — they're already on screen for the user to see, so we
+      // go straight to negotiating the top N.
       const priced = round1Results
         .filter(
           (q): q is { id: string; name: string; bottomLine: number } => q.bottomLine != null,
         )
         .sort((a, b) => a.bottomLine - b.bottomLine);
-      const cheapest = priced[0];
-      if (priced.length) {
-        const summaryParts = priced
-          .map((q) => `${q.name} came in at $${q.bottomLine.toLocaleString()}`)
-          .join("; ");
-        const bridge = cheapest
-          ? ` The best opener is ${cheapest.name}. Time to call ${priced.length > 1 ? "the top sellers" : "them"} back and squeeze the fees.`
-          : "";
-        await narrate(`Here's what we heard, ${clientName}: ${summaryParts}.${bridge}`);
-      } else {
-        await narrate(`${clientName}, the quotes are in. Starting negotiations.`);
-      }
 
       // 3. Leverage (brief — no separate wait, this feels like one flow now)
       setPhase("leverage");
@@ -458,7 +433,7 @@ export function usePipeline(jobId: string) {
 
   return {
     phase, round, counterparties, activeId, views, labels, error,
-    narration, awaitingContinue, continueNow, settings,
+    narration, settings,
     start, stopAudio, key,
   };
 }
