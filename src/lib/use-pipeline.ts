@@ -67,6 +67,9 @@ export function usePipeline(jobId: string) {
   const [views, setViews] = useState<Record<string, CallView>>({});
   const [labels, setLabels] = useState<{ bottom_line: string; counterparty_plural: string } | null>(null);
   const [narration, setNarration] = useState<string | null>(null);
+  const [assessments, setAssessments] = useState<PersonaAssessment[]>([]);
+  const [negotiationIds, setNegotiationIds] = useState<string[]>([]);
+
   const [awaitingContinue, setAwaitingContinue] = useState(false);
   const continueRef = useRef<(() => void) | null>(null);
   const [error, setError] = useState<string | null>(null);
